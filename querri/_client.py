@@ -38,7 +38,7 @@ class Querri:
         Args:
             api_key: API key (``qk_`` prefix). Falls back to ``QUERRI_API_KEY`` env var.
             org_id: Organization ID. Falls back to ``QUERRI_ORG_ID`` env var.
-            host: API host URL. Falls back to ``QUERRI_HOST`` (default: ``https://api.querri.com``).
+            host: API host URL. Falls back to ``QUERRI_HOST`` (default: ``https://app.querri.com``).
             timeout: Request timeout in seconds (default: 30.0).
             max_retries: Max retry attempts for failed requests (default: 3).
         """
@@ -203,7 +203,7 @@ class AsyncQuerri:
         Args:
             api_key: API key (``qk_`` prefix). Falls back to ``QUERRI_API_KEY`` env var.
             org_id: Organization ID. Falls back to ``QUERRI_ORG_ID`` env var.
-            host: API host URL. Falls back to ``QUERRI_HOST`` (default: ``https://api.querri.com``).
+            host: API host URL. Falls back to ``QUERRI_HOST`` (default: ``https://app.querri.com``).
             timeout: Request timeout in seconds (default: 30.0).
             max_retries: Max retry attempts for failed requests (default: 3).
         """
