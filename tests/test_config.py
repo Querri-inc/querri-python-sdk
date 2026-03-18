@@ -33,6 +33,7 @@ class TestResolveConfig:
             assert cfg.org_id == "org_env"
 
     def test_explicit_overrides_env(self):
+        """Verify that explicit args take priority over environment variables."""
         env = {"QUERRI_API_KEY": "qk_env", "QUERRI_ORG_ID": "org_env"}
         with patch.dict(os.environ, env, clear=False):
             cfg = resolve_config(api_key="qk_explicit", org_id="org_explicit")
@@ -65,6 +66,7 @@ class TestResolveConfig:
         assert cfg.base_url == "https://custom.example.com/api/v1"
 
     def test_host_trailing_slash_stripped(self):
+        """Verify that a trailing slash on the host is stripped before appending /api/v1."""
         cfg = resolve_config(
             api_key="qk_abc", org_id="org_123",
             host="https://example.com/",
@@ -86,6 +88,7 @@ class TestResolveConfig:
         assert cfg.timeout == 60.0
 
     def test_timeout_from_env(self):
+        """Verify that QUERRI_TIMEOUT env var is parsed as a float and applied."""
         env = {
             "QUERRI_API_KEY": "qk_abc",
             "QUERRI_ORG_ID": "org_123",
@@ -100,6 +103,7 @@ class TestResolveConfig:
         assert cfg.max_retries == 5
 
     def test_max_retries_from_env(self):
+        """Verify that QUERRI_MAX_RETRIES env var is parsed as an int and applied."""
         env = {
             "QUERRI_API_KEY": "qk_abc",
             "QUERRI_ORG_ID": "org_123",

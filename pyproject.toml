@@ -36,6 +36,11 @@ test = [
     "pytest-asyncio>=0.23",
     "respx>=0.21",
 ]
+dev = [
+    "querri[test]",
+    "mypy>=1.0",
+    "ruff>=0.4",
+]
 
 [project.urls]
 Homepage = "https://querri.com"

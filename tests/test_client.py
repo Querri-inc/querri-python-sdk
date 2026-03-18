@@ -30,6 +30,7 @@ class TestQuerriInit:
             client.close()
 
     def test_init_explicit_overrides_env(self):
+        """Verify that explicit constructor args take priority over environment variables."""
         env = {"QUERRI_API_KEY": "qk_env", "QUERRI_ORG_ID": "org_env"}
         with patch.dict(os.environ, env, clear=False):
             client = Querri(api_key="qk_explicit", org_id="org_explicit")
@@ -63,6 +64,7 @@ class TestQuerriInit:
         client.close()
 
     def test_context_manager(self):
+        """Verify that the client can be used as a context manager for automatic cleanup."""
         with Querri(api_key="qk_abc", org_id="org_xyz") as client:
             assert client._config.api_key == "qk_abc"
 
@@ -82,12 +84,14 @@ class TestQuerriResources:
         client.close()
 
     def test_resources_are_none_before_access(self):
+        """Verify that resource backing fields are None until the property is first accessed."""
         client = Querri(api_key="qk_abc", org_id="org_xyz")
         for name in self.RESOURCE_NAMES:
             assert client.__dict__.get(f"_{name}") is None
         client.close()
 
     def test_resource_is_cached_after_access(self):
+        """Verify that repeated property access returns the same cached instance."""
         client = Querri(api_key="qk_abc", org_id="org_xyz")
         users1 = client.users
         users2 = client.users
@@ -122,5 +126,6 @@ class TestAsyncQuerriInit:
             assert hasattr(client, name), f"Missing async resource: {name}"
 
     async def test_async_context_manager(self):
+        """Verify that the async client can be used as an async context manager."""
         async with AsyncQuerri(api_key="qk_abc", org_id="org_xyz") as client:
             assert client._config.api_key == "qk_abc"

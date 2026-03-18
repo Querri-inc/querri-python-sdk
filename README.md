@@ -148,11 +148,16 @@ policy = client.policies.setup(
 ### Other operations
 
 ```python
-# List policies
-policies = client.policies.list()
+# List policies (returns a paginated iterator)
+for policy in client.policies.list():
+    print(policy.name)
+
+# Or collect all into a list
+policies = client.policies.list().to_list()
 
 # Filter by name
-policies = client.policies.list(name="APAC Sales")
+for policy in client.policies.list(name="APAC Sales"):
+    print(policy.id)
 
 # Get policy details
 policy = client.policies.get("pol_...")
@@ -226,8 +231,9 @@ client.projects.delete(project.id)
 ## Dashboards
 
 ```python
-# List
-dashboards = client.dashboards.list()
+# List (returns a paginated iterator)
+for dashboard in client.dashboards.list():
+    print(dashboard.name)
 
 # Get details
 dashboard = client.dashboards.get("dash_...")

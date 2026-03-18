@@ -51,6 +51,10 @@ class ChatStream:
     """
 
     def __init__(self, response: httpx.Response) -> None:
+        """Wrap an httpx streaming response for SSE chunk parsing.
+
+        Extracts ``x-message-id`` from response headers for message correlation.
+        """
         self._response = response
         self._text_chunks: list[str] = []
         self._done = False
@@ -59,6 +63,7 @@ class ChatStream:
 
     @property
     def message_id(self) -> Optional[str]:
+        """Server-assigned message ID from the ``x-message-id`` response header."""
         return self._message_id
 
     def __iter__(self) -> Iterator[str]:
@@ -78,7 +83,8 @@ class ChatStream:
                     text = data
                     if text.startswith('"') and text.endswith('"'):
                         text = text[1:-1]
-                        # Unescape common sequences
+                        # Vercel AI SDK JSON-encodes text with surrounding quotes. Strip them and
+                        # unescape \n, \", \\ in that order (backslash last to avoid double-unescape).
                         text = text.replace("\\n", "\n").replace('\\"', '"').replace("\\\\", "\\")
                     self._text_chunks.append(text)
                     yield text
@@ -108,7 +114,7 @@ class ChatStream:
         return "".join(self._text_chunks)
 
     def cancel(self) -> None:
-        """Cancel the stream."""
+        """Cancel the stream and close the response. Always raises ``StreamCancelledError``."""
         self._cancelled = True
         self._response.close()
         raise StreamCancelledError("Stream cancelled by client")
@@ -128,6 +134,10 @@ class AsyncChatStream:
     """
 
     def __init__(self, response: httpx.Response) -> None:
+        """Wrap an httpx streaming response for SSE chunk parsing.
+
+        Extracts ``x-message-id`` from response headers for message correlation.
+        """
         self._response = response
         self._text_chunks: list[str] = []
         self._done = False
@@ -136,6 +146,7 @@ class AsyncChatStream:
 
     @property
     def message_id(self) -> Optional[str]:
+        """Server-assigned message ID from the ``x-message-id`` response header."""
         return self._message_id
 
     async def __aiter__(self):  # type: ignore[override]
@@ -154,6 +165,8 @@ class AsyncChatStream:
                     text = data
                     if text.startswith('"') and text.endswith('"'):
                         text = text[1:-1]
+                        # Vercel AI SDK JSON-encodes text with surrounding quotes. Strip them and
+                        # unescape \n, \", \\ in that order (backslash last to avoid double-unescape).
                         text = text.replace("\\n", "\n").replace('\\"', '"').replace("\\\\", "\\")
                     self._text_chunks.append(text)
                     yield text
@@ -180,7 +193,7 @@ class AsyncChatStream:
         return "".join(self._text_chunks)
 
     async def cancel(self) -> None:
-        """Cancel the stream."""
+        """Cancel the stream and close the response. Always raises ``StreamCancelledError``."""
         self._cancelled = True
         await self._response.aclose()
         raise StreamCancelledError("Stream cancelled by client")
