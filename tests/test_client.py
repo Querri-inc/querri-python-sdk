@@ -40,7 +40,7 @@ class TestQuerriInit:
     def test_init_raises_without_api_key(self):
         env = {k: v for k, v in os.environ.items() if k != "QUERRI_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(ConfigError, match="No API key"):
+            with pytest.raises(ConfigError, match="No credentials found"):
                 Querri(org_id="org_123")
 
     def test_init_raises_without_org_id(self):
@@ -113,7 +113,7 @@ class TestAsyncQuerriInit:
     def test_init_raises_without_api_key(self):
         env = {k: v for k, v in os.environ.items() if k != "QUERRI_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(ConfigError, match="No API key"):
+            with pytest.raises(ConfigError, match="No credentials found"):
                 AsyncQuerri(org_id="org_123")
 
     def test_async_resource_properties_exist(self):

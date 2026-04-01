@@ -30,12 +30,18 @@ _RETRYABLE_STATUSES = {429, 500, 502, 503}
 
 
 def _default_headers(config: ClientConfig) -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {config.api_key}",
-        "X-Tenant-ID": config.org_id,
+    headers: dict[str, str] = {
         "User-Agent": config.user_agent,
         "Accept": "application/json",
     }
+    # Header branching: qk_* → API key + X-Tenant-ID, ey* → JWT only
+    if config.access_token:
+        headers["Authorization"] = f"Bearer {config.access_token}"
+    elif config.api_key:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+        if config.org_id:
+            headers["X-Tenant-ID"] = config.org_id
+    return headers
 
 
 def _should_retry(status: int, method: str) -> bool:

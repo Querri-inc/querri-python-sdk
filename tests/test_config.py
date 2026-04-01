@@ -42,7 +42,7 @@ class TestResolveConfig:
     def test_missing_api_key_raises(self):
         env = {k: v for k, v in os.environ.items() if k != "QUERRI_API_KEY"}
         with patch.dict(os.environ, env, clear=True):
-            with pytest.raises(ConfigError, match="No API key"):
+            with pytest.raises(ConfigError, match="No credentials found"):
                 resolve_config(org_id="org_123")
 
     def test_missing_org_id_raises(self):
@@ -116,4 +116,4 @@ class TestClientConfig:
     def test_user_agent(self):
         cfg = ClientConfig(api_key="qk_abc", org_id="org_123")
         assert cfg.user_agent.startswith("querri-python/")
-        assert "0.1.0" in cfg.user_agent
+        assert "0.2.0" in cfg.user_agent

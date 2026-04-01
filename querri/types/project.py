@@ -35,6 +35,14 @@ class Project(BaseModel):
     """Only present on detail responses."""
 
 
+class AddSourceResponse(BaseModel):
+    """Response from adding a source to a project."""
+
+    step_id: str
+    project_id: str
+    status: str = "running"
+
+
 class ProjectDeleteResponse(BaseModel):
     """Response from deleting a project."""
 

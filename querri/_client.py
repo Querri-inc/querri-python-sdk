@@ -28,13 +28,17 @@ class Querri:
         self,
         *,
         api_key: Optional[str] = None,
+        access_token: Optional[str] = None,
         org_id: Optional[str] = None,
         host: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        profile: Optional[str] = None,
     ) -> None:
+        self._profile = profile  # v0.2.1: used for token store profile selection
         self._config = resolve_config(
             api_key=api_key,
+            access_token=access_token,
             org_id=org_id,
             host=host,
             timeout=timeout,
@@ -167,13 +171,17 @@ class AsyncQuerri:
         self,
         *,
         api_key: Optional[str] = None,
+        access_token: Optional[str] = None,
         org_id: Optional[str] = None,
         host: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        profile: Optional[str] = None,
     ) -> None:
+        self._profile = profile  # v0.2.1: used for token store profile selection
         self._config = resolve_config(
             api_key=api_key,
+            access_token=access_token,
             org_id=org_id,
             host=host,
             timeout=timeout,
