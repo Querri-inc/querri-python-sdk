@@ -238,6 +238,7 @@ def _stream_plain(
 
     final_steps: dict[str, dict] = {}
     step_results_rendered = False
+    _rendered_step_ids.clear()
     last_status = ""
 
     _debug(debug_log, f"Stream started (project={project_id})")
@@ -280,9 +281,9 @@ def _stream_plain(
                 from rich.console import Console
                 _render_step_result_event(Console(), event, project_id, client)
                 step_results_rendered = True
+                final_steps.clear()  # Prevent fallback from re-rendering
         elif event.event_type == "tool-output-available":
             if event.tool_name != "usage":
-                # Only accumulate for fallback if we haven't gotten step-result events
                 if not step_results_rendered:
                     _accumulate_tool_output(event, final_steps)
                 status = _get_step_status_short(event.tool_data)
@@ -335,6 +336,7 @@ def _stream_rich(
     # Accumulate the latest tool output per step UUID from the stream
     final_steps: dict[str, dict] = {}
     step_results_rendered = False
+    _rendered_step_ids.clear()
 
     def _build_display() -> Group:
         parts: list[object] = []
@@ -382,6 +384,7 @@ def _stream_rich(
             elif event.event_type == "step-result":
                 # Step completed with full result — render immediately
                 step_results_rendered = True
+                final_steps.clear()
                 # Exit Live context temporarily to render the step panel
                 live.stop()
                 if project_id and client:
@@ -545,7 +548,13 @@ def _render_step_result_event(
     }
 
     step_id = (qdf.get("uuid") if isinstance(qdf, dict) else None) or result.get("qdf_uuid") or "step"
-    _render_inline_step(console, step_id, step, project_id, base_url, auth_headers, _ICONS)
+    if step_id not in _rendered_step_ids:
+        _render_inline_step(console, step_id, step, project_id, base_url, auth_headers, _ICONS)
+        _rendered_step_ids.add(step_id)
+
+
+_rendered_step_ids: set[str] = set()
+"""Module-level set to prevent rendering the same step more than once per session."""
 
 
 def _render_accumulated_steps(
@@ -554,7 +563,7 @@ def _render_accumulated_steps(
     project_id: str,
     client: object | None = None,
 ) -> None:
-    """Render step results accumulated from the SSE stream."""
+    """Render step results accumulated from the SSE stream. Each step renders only once."""
     base_url = ""
     auth_headers: dict[str, str] = {}
     if client:
@@ -567,7 +576,8 @@ def _render_accumulated_steps(
 
     rendered = False
     for sid, sdata in final_steps.items():
-        # Only render steps that completed (have result data)
+        if sid in _rendered_step_ids:
+            continue
         status = sdata.get("status", "")
         if status not in ("complete", "success"):
             continue
@@ -575,6 +585,7 @@ def _render_accumulated_steps(
         if not step.get("name"):
             continue
         _render_inline_step(console, sid, step, project_id, base_url, auth_headers, _ICONS)
+        _rendered_step_ids.add(sid)
         rendered = True
 
     if rendered:
