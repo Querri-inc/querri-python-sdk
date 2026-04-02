@@ -35,6 +35,8 @@ class ChatStreamEvent:
     The ``event_type`` field indicates which fields are populated:
 
     - ``text-delta``: ``text`` contains the chunk.
+    - ``reasoning-delta``: ``reasoning_text`` contains reasoning chunk.
+    - ``reasoning-start`` / ``reasoning-end``: reasoning lifecycle markers.
     - ``tool-output-available``: ``tool_name`` and ``tool_data``.
     - ``file``: ``file_url`` and ``media_type``.
     - ``error``: ``error`` message.
@@ -45,6 +47,7 @@ class ChatStreamEvent:
 
     event_type: str
     text: str | None = None
+    reasoning_text: str | None = None
     tool_name: str | None = None
     tool_data: Any | None = None
     file_url: str | None = None
@@ -147,6 +150,13 @@ def _build_event(event_type: str, data: str) -> ChatStreamEvent:
                 raw_data=data,
             )
 
+        case "reasoning-delta":
+            text = parsed.get("textDelta", parsed.get("delta", data)) if parsed else _unquote_text(data)
+            return ChatStreamEvent(event_type=event_type, reasoning_text=text)
+
+        case "reasoning-start" | "reasoning-end":
+            return ChatStreamEvent(event_type=event_type)
+
         case "[DONE]":
             return ChatStreamEvent(event_type=event_type)
 
@@ -177,9 +187,12 @@ def _build_event_from_json(data: str) -> Optional[ChatStreamEvent]:
                 text=parsed.get("textDelta", parsed.get("delta", "")),
             )
 
-        # Reasoning / thinking (show as text for CLI)
+        # Reasoning / thinking
         case "reasoning-delta":
-            return None  # Skip reasoning in output for now
+            return ChatStreamEvent(
+                event_type="reasoning-delta",
+                reasoning_text=parsed.get("textDelta", parsed.get("delta", "")),
+            )
 
         # Tool calls
         case "tool-call-start":
@@ -215,7 +228,7 @@ def _build_event_from_json(data: str) -> Optional[ChatStreamEvent]:
         case "start-step" | "end-step":
             return None
         case "reasoning-start" | "reasoning-end":
-            return None
+            return ChatStreamEvent(event_type=event_type)
         case "finish" | "done":
             return ChatStreamEvent(
                 event_type="finish",

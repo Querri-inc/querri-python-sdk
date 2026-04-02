@@ -33,10 +33,10 @@ dependencies = [
 cli = [
     "typer[all]>=0.12,<1.0",
     "rich>=13.0,<14.0",
+    "Pillow>=10.0,<12.0",
 ]
 tui = [
     "querri[cli]",
-    "textual>=0.80,<1.0",
 ]
 test = [
     "pytest>=8.0",

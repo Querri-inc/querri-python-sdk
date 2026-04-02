@@ -617,3 +617,232 @@ def add_source(
         print_success(f"Added source {source_id} to project")
         if response_text.strip():
             print(response_text)
+
+
+# ---------------------------------------------------------------------------
+# querri project show
+# ---------------------------------------------------------------------------
+
+
+@projects_app.command("show")
+def show_project(
+    ctx: typer.Context,
+    project_id: Optional[str] = typer.Argument(None, help="Project ID (default: active project)."),
+) -> None:
+    """Show a visual overview of the project and its step pipeline.
+
+    Displays project details and a visual pipeline of all steps, showing
+    each step's name, type, status, and whether it produced data or figures.
+
+    Example: querri project show
+    """
+    obj = ctx.ensure_object(dict)
+    is_json = obj.get("json", False)
+    pid = project_id or resolve_project_id(ctx)
+    client = get_client(ctx)
+
+    # Fetch full project with stepStore from internal endpoint for DAG data
+    project = _get_full_project(client, pid)
+    if project is None:
+        # Fallback to v1 endpoint
+        try:
+            project = client.projects.get(pid)
+        except Exception as exc:
+            raise typer.Exit(code=handle_api_error(exc, is_json=is_json))
+
+    if is_json:
+        print_json(project)
+        return
+
+    if obj.get("quiet"):
+        print_id(project.id)
+        return
+
+    _render_project_show(project)
+
+
+def _get_full_project(client: object, project_id: str) -> object | None:
+    """Fetch the full project with stepStore from the internal API endpoint.
+
+    The ``/api/v1/`` endpoint returns a simplified view without graph
+    relationships. The internal ``/api/`` endpoint returns the full
+    ``stepStore`` dict with parent/children/dependencies and ``chatsStore``.
+    """
+    from querri.types.project import Project
+
+    try:
+        # Use the SDK's HTTP client to make the request (preserves auth headers)
+        # but target the internal /api/ path instead of /api/v1/
+        http = client._http  # type: ignore[attr-defined]
+        # The SDK's request() method handles auth headers and retries
+        base_url = str(http._client.base_url)
+        internal_base = base_url.replace("/api/v1", "/api")
+
+        import httpx as _httpx
+        resp = _httpx.get(
+            f"{internal_base}/projects/{project_id}",
+            headers=dict(http._client.headers),
+            follow_redirects=True,
+            timeout=30.0,
+        )
+        if resp.status_code != 200:
+            return None
+        return Project.model_validate(resp.json())
+    except Exception:
+        return None
+
+
+_STATUS_ICONS = {
+    "completed": "[green]●[/green]",
+    "complete": "[green]●[/green]",
+    "running": "[yellow]◉[/yellow]",
+    "error": "[red]✗[/red]",
+    "pending": "[dim]○[/dim]",
+    "queued": "[dim]◌[/dim]",
+    "new": "[dim]○[/dim]",
+}
+_TYPE_ICONS = {
+    "sql": "🔍",
+    "duckdb_query": "🔍",
+    "python": "🐍",
+    "draw_figure": "📊",
+    "visualization": "📊",
+    "load": "📂",
+    "source": "📂",
+    "researcher": "🌐",
+    "export": "📤",
+}
+
+
+def _render_project_show(project: object) -> None:
+    """Render a visual project overview with step DAG."""
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich.tree import Tree
+
+    from querri.cli._output import QUERRI_ORANGE
+
+    console = Console()
+
+    # Project header
+    desc = getattr(project, "description", None) or ""
+    status = getattr(project, "status", "idle")
+    step_count = getattr(project, "step_count", 0) or 0
+    chat_count = getattr(project, "chat_count", 0) or 0
+
+    header = Text()
+    header.append(project.name, style=f"bold {QUERRI_ORANGE}")
+    header.append(f"\n{project.id}", style="dim")
+    if desc:
+        header.append(f"\n{desc}")
+    header.append(f"\n\nStatus: ", style="bold")
+    status_style = "green" if status == "idle" else "yellow" if status == "running" else "red"
+    header.append(status, style=status_style)
+    header.append(f"   Steps: {step_count}   Chats: {chat_count}", style="dim")
+
+    console.print(Panel(header, border_style=QUERRI_ORANGE, padding=(1, 2)))
+
+    # Step DAG
+    steps = getattr(project, "steps", None) or []
+    if not steps:
+        console.print("\n  [dim]No steps yet. Send a chat message to create steps.[/dim]")
+        return
+
+    # Build lookup
+    by_id: dict[str, object] = {s.id: s for s in steps}
+
+    # Find root nodes (no parent) and build DAG tree
+    roots = [s for s in steps if not getattr(s, "parent", None)]
+    # If no roots found (parent field not populated), fall back to order-based
+    if not roots:
+        roots = sorted(steps, key=lambda s: s.order)
+
+    tree = Tree(
+        Text("Data Flow", style=f"bold {QUERRI_ORANGE}"),
+        guide_style=QUERRI_ORANGE,
+    )
+
+    visited: set[str] = set()
+
+    def _add_step(parent_branch: Tree, step: object) -> None:
+        if step.id in visited:
+            # Avoid cycles — show reference instead
+            parent_branch.add(Text.from_markup(
+                f"[dim]↩ {step.name} (ref {step.id[:8]}…)[/dim]"
+            ))
+            return
+        visited.add(step.id)
+
+        label = _step_label(step, by_id)
+        branch = parent_branch.add(label)
+
+        # Add children
+        children_ids = getattr(step, "children", None) or []
+        for cid in children_ids:
+            child = by_id.get(cid)
+            if child:
+                _add_step(branch, child)
+
+    for root in roots:
+        if root.id not in visited:
+            _add_step(tree, root)
+
+    console.print()
+    console.print(tree)
+
+    # Show dependency edges separately if any exist
+    dep_edges: list[str] = []
+    for step in steps:
+        deps = getattr(step, "dependencies", None) or []
+        for dep_id in deps:
+            dep_step = by_id.get(dep_id)
+            dep_name = dep_step.name if dep_step else dep_id[:8]
+            dep_edges.append(f"  {dep_name} → {step.name}")
+
+    if dep_edges:
+        console.print()
+        console.print(Text("Data Dependencies", style=f"bold {QUERRI_ORANGE}"))
+        for edge in dep_edges:
+            console.print(Text.from_markup(f"  [dim]{edge}[/dim]"))
+
+    console.print()
+
+
+def _step_label(step: object, by_id: dict[str, object]) -> Text:
+    """Build a Rich Text label for a step node."""
+    from rich.text import Text
+
+    status_icon = _STATUS_ICONS.get(step.status, "[dim]?[/dim]")
+    type_icon = _TYPE_ICONS.get(step.type, "⚙")
+
+    label = Text()
+    label.append_text(Text.from_markup(f"{status_icon} "))
+    label.append(f"{type_icon} ", style="")
+    label.append(step.name, style="bold")
+    label.append(f"  ({step.type})", style="dim")
+
+    # Data/figure indicators
+    indicators: list[str] = []
+    if step.has_data:
+        indicators.append("[blue]table[/blue]")
+    if step.has_figure:
+        indicators.append("[magenta]chart[/magenta]")
+    if indicators:
+        label.append_text(Text.from_markup(f"  [{', '.join(indicators)}]"))
+
+    # Dependency indicators
+    deps = getattr(step, "dependencies", None) or []
+    if deps:
+        dep_names = []
+        for did in deps:
+            d = by_id.get(did)
+            dep_names.append(d.name if d else did[:8])
+        label.append_text(Text.from_markup(
+            f"\n    [dim]← depends on: {', '.join(dep_names)}[/dim]"
+        ))
+
+    # Step ID
+    label.append(f"\n    {step.id}", style="dim")
+
+    return label

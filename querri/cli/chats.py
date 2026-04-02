@@ -66,10 +66,19 @@ def _resolve_user_id(
 @chats_app.command("list")
 def list_chats(
     ctx: typer.Context,
-    project_id: str = typer.Argument(help="Project UUID."),
+    project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
     limit: int = typer.Option(25, "--limit", "-l", help="Max chats to return."),
 ) -> None:
     """List chats on a project."""
+    if not project_id:
+        if sys.stdin.isatty():
+            project_id = input("Project ID: ").strip()
+            if not project_id:
+                print_error("Project ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument PROJECT_ID. Usage: querri chats list PROJECT_ID")
+            raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
 
@@ -95,10 +104,28 @@ def list_chats(
 @chats_app.command("get")
 def get_chat(
     ctx: typer.Context,
-    project_id: str = typer.Argument(help="Project UUID."),
-    chat_id: str = typer.Argument(help="Chat UUID."),
+    project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
+    chat_id: Optional[str] = typer.Argument(None, help="Chat UUID."),
 ) -> None:
     """Get chat details with message history."""
+    if not project_id:
+        if sys.stdin.isatty():
+            project_id = input("Project ID: ").strip()
+            if not project_id:
+                print_error("Project ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument PROJECT_ID. Usage: querri chats get PROJECT_ID CHAT_ID")
+            raise typer.Exit(code=1)
+    if not chat_id:
+        if sys.stdin.isatty():
+            chat_id = input("Chat ID: ").strip()
+            if not chat_id:
+                print_error("Chat ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument CHAT_ID. Usage: querri chats get PROJECT_ID CHAT_ID")
+            raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
 
@@ -124,10 +151,19 @@ def get_chat(
 @chats_app.command("create")
 def create_chat(
     ctx: typer.Context,
-    project_id: str = typer.Argument(help="Project UUID."),
+    project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Chat display name."),
 ) -> None:
     """Create a new chat on a project."""
+    if not project_id:
+        if sys.stdin.isatty():
+            project_id = input("Project ID: ").strip()
+            if not project_id:
+                print_error("Project ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument PROJECT_ID. Usage: querri chats create PROJECT_ID [--name NAME]")
+            raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
 
@@ -148,10 +184,28 @@ def create_chat(
 @chats_app.command("delete")
 def delete_chat(
     ctx: typer.Context,
-    project_id: str = typer.Argument(help="Project UUID."),
-    chat_id: str = typer.Argument(help="Chat UUID."),
+    project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
+    chat_id: Optional[str] = typer.Argument(None, help="Chat UUID."),
 ) -> None:
     """Delete a chat from a project."""
+    if not project_id:
+        if sys.stdin.isatty():
+            project_id = input("Project ID: ").strip()
+            if not project_id:
+                print_error("Project ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument PROJECT_ID. Usage: querri chats delete PROJECT_ID CHAT_ID")
+            raise typer.Exit(code=1)
+    if not chat_id:
+        if sys.stdin.isatty():
+            chat_id = input("Chat ID: ").strip()
+            if not chat_id:
+                print_error("Chat ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument CHAT_ID. Usage: querri chats delete PROJECT_ID CHAT_ID")
+            raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
 
@@ -170,10 +224,28 @@ def delete_chat(
 @chats_app.command("cancel")
 def cancel_chat(
     ctx: typer.Context,
-    project_id: str = typer.Argument(help="Project UUID."),
-    chat_id: str = typer.Argument(help="Chat UUID."),
+    project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
+    chat_id: Optional[str] = typer.Argument(None, help="Chat UUID."),
 ) -> None:
     """Cancel an active chat stream."""
+    if not project_id:
+        if sys.stdin.isatty():
+            project_id = input("Project ID: ").strip()
+            if not project_id:
+                print_error("Project ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument PROJECT_ID. Usage: querri chats cancel PROJECT_ID CHAT_ID")
+            raise typer.Exit(code=1)
+    if not chat_id:
+        if sys.stdin.isatty():
+            chat_id = input("Chat ID: ").strip()
+            if not chat_id:
+                print_error("Chat ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument CHAT_ID. Usage: querri chats cancel PROJECT_ID CHAT_ID")
+            raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
 
@@ -192,14 +264,15 @@ def cancel_chat(
 @chats_app.command("stream")
 def stream_chat(
     ctx: typer.Context,
-    project_id: str = typer.Argument(help="Project UUID."),
-    chat_id: str = typer.Argument(help="Chat UUID."),
-    prompt: str = typer.Option(..., "--prompt", "-p", help="User message to send."),
+    project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
+    chat_id: Optional[str] = typer.Argument(None, help="Chat UUID."),
+    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="User message to send."),
     user_id: Optional[str] = typer.Option(
         None, "--user-id", "-u",
         help="User ID (or set QUERRI_USER_ID env var).",
     ),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Model selection."),
+    reasoning: bool = typer.Option(False, "--reasoning", "-r", help="Show reasoning traces."),
 ) -> None:
     """Send a message and stream the AI response.
 
@@ -207,6 +280,34 @@ def stream_chat(
     In --json mode, accumulates the full response and outputs structured JSON.
     In non-TTY mode, outputs plain text.
     """
+    if not project_id:
+        if sys.stdin.isatty():
+            project_id = input("Project ID: ").strip()
+            if not project_id:
+                print_error("Project ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument PROJECT_ID. Usage: querri chats stream PROJECT_ID CHAT_ID --prompt PROMPT --user-id USER_ID")
+            raise typer.Exit(code=1)
+    if not chat_id:
+        if sys.stdin.isatty():
+            chat_id = input("Chat ID: ").strip()
+            if not chat_id:
+                print_error("Chat ID is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required argument CHAT_ID. Usage: querri chats stream PROJECT_ID CHAT_ID --prompt PROMPT --user-id USER_ID")
+            raise typer.Exit(code=1)
+    if not prompt:
+        if sys.stdin.isatty():
+            prompt = input("Prompt: ").strip()
+            if not prompt:
+                print_error("Prompt is required.")
+                raise typer.Exit(code=1)
+        else:
+            print_error("Missing required option --prompt. Usage: querri chats stream PROJECT_ID CHAT_ID --prompt PROMPT --user-id USER_ID")
+            raise typer.Exit(code=1)
+
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
     is_interactive = obj.get("interactive", False)
@@ -239,9 +340,9 @@ def stream_chat(
         if is_json:
             _stream_json(stream)
         elif is_interactive:
-            _stream_rich(stream)
+            _stream_rich(stream, show_reasoning=reasoning)
         else:
-            _stream_plain(stream)
+            _stream_plain(stream, show_reasoning=reasoning)
     except Exception as exc:
         if not cancelled:
             raise typer.Exit(code=handle_api_error(exc, is_json=is_json))
@@ -253,93 +354,19 @@ def stream_chat(
         raise typer.Exit(code=EXIT_SUCCESS)
 
 
-def _stream_plain(stream: object) -> None:
-    """Stream text to stdout without formatting."""
-    from querri._streaming import ChatStream
-    assert isinstance(stream, ChatStream)
-
-    for event in stream.events():
-        if event.event_type == "text-delta" and event.text:
-            print(event.text, end="", flush=True)
-        elif event.event_type == "terminate":
-            reason = event.terminate_reason or "unknown"
-            msg = event.terminate_message or ""
-            print(f"\nStream closed: {reason}. {msg}", file=sys.stderr)
-        elif event.event_type == "error":
-            print(f"\nError: {event.error}", file=sys.stderr)
-    print()  # trailing newline
+def _stream_plain(stream: object, *, show_reasoning: bool = False) -> None:
+    """Stream text to stdout without formatting — delegates to chat module."""
+    from querri.cli.chat import _stream_plain as _chat_stream_plain
+    _chat_stream_plain(stream, show_reasoning=show_reasoning)
 
 
-def _stream_rich(stream: object) -> None:
-    """Stream with Rich Live markdown rendering."""
-    from rich.console import Console
-    from rich.live import Live
-    from rich.markdown import Markdown
-
-    from querri._streaming import ChatStream
-    assert isinstance(stream, ChatStream)
-
-    console = Console()
-    accumulated_text = ""
-
-    with Live(Markdown(""), console=console, refresh_per_second=10) as live:
-        for event in stream.events():
-            if event.event_type == "text-delta" and event.text:
-                accumulated_text += event.text
-                live.update(Markdown(accumulated_text))
-            elif event.event_type == "tool-output-available":
-                tool_info = f"\n\n**Tool: {event.tool_name}**\n"
-                accumulated_text += tool_info
-                live.update(Markdown(accumulated_text))
-            elif event.event_type == "file":
-                file_info = f"\n\n📎 [{event.file_url}]({event.file_url})\n"
-                accumulated_text += file_info
-                live.update(Markdown(accumulated_text))
-            elif event.event_type == "terminate":
-                reason = event.terminate_reason or "unknown"
-                msg = event.terminate_message or "Start a new chat to continue."
-                console.print(f"\n[#f15a24]Stream closed: {reason}. {msg}[/#f15a24]")
-            elif event.event_type == "error":
-                console.print(f"\n[red]Error: {event.error}[/red]")
+def _stream_rich(stream: object, *, show_reasoning: bool = False) -> None:
+    """Stream with Rich Live markdown rendering — delegates to chat module."""
+    from querri.cli.chat import _stream_rich as _chat_stream_rich
+    _chat_stream_rich(stream, show_reasoning=show_reasoning)
 
 
 def _stream_json(stream: object) -> None:
-    """Accumulate full response and output structured JSON."""
-    from querri._streaming import ChatStream
-    assert isinstance(stream, ChatStream)
-
-    text_parts: list[str] = []
-    tool_calls: list[dict] = []
-    files: list[dict] = []
-    usage: dict | None = None
-
-    for event in stream.events():
-        if event.event_type == "text-delta" and event.text:
-            text_parts.append(event.text)
-        elif event.event_type == "tool-output-available":
-            tool_calls.append({
-                "tool_name": event.tool_name,
-                "output": event.tool_data,
-            })
-        elif event.event_type == "file":
-            files.append({
-                "url": event.file_url,
-                "media_type": event.media_type,
-            })
-        elif event.event_type == "finish":
-            usage = event.usage
-        elif event.event_type == "terminate":
-            text_parts.append(
-                f"\n[Stream closed: {event.terminate_reason}]"
-            )
-
-    result = {
-        "message_id": stream.message_id,
-        "text": "".join(text_parts),
-        "tool_calls": tool_calls,
-        "files": files,
-    }
-    if usage:
-        result["usage"] = usage
-
-    print_json(result)
+    """Accumulate full response and output structured JSON — delegates to chat module."""
+    from querri.cli.chat import _stream_json as _chat_stream_json
+    _chat_stream_json(stream)

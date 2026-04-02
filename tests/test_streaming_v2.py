@@ -144,12 +144,23 @@ class TestBuildEvent:
         assert event.event_type == "[DONE]"
 
     def test_unknown_event_passes_through(self):
-        event = _build_event("reasoning-delta", '{"delta": "thinking..."}')
-        assert event.event_type == "reasoning-delta"
-        assert event.raw_data == '{"delta": "thinking..."}'
-        # No specific fields populated
+        event = _build_event("some-future-event", '{"data": "stuff"}')
+        assert event.event_type == "some-future-event"
+        assert event.raw_data == '{"data": "stuff"}'
         assert event.text is None
         assert event.error is None
+
+    def test_reasoning_delta_event(self):
+        event = _build_event("reasoning-delta", '{"delta": "thinking..."}')
+        assert event.event_type == "reasoning-delta"
+        assert event.reasoning_text == "thinking..."
+        assert event.text is None
+
+    def test_reasoning_start_end(self):
+        start = _build_event("reasoning-start", "")
+        assert start.event_type == "reasoning-start"
+        end = _build_event("reasoning-end", "")
+        assert end.event_type == "reasoning-end"
 
 
 # ---------------------------------------------------------------------------
@@ -250,8 +261,8 @@ class TestChatStreamEvents:
         assert events[1].terminate_reason == "session_timeout"
         assert events[1].terminate_message == "Session expired"
 
-    def test_v2_unknown_event_ignored(self):
-        """Unknown event types pass through without error (forward compat)."""
+    def test_v2_reasoning_events(self):
+        """Reasoning events are parsed with reasoning_text field."""
         response = _make_response([
             "event: text-delta",
             'data: {"textDelta": "Hi"}',
@@ -268,7 +279,28 @@ class TestChatStreamEvents:
         assert len(events) == 3
         assert events[0].event_type == "text-delta"
         assert events[1].event_type == "reasoning-delta"
-        assert events[1].raw_data == '{"delta": "thinking..."}'
+        assert events[1].reasoning_text == "thinking..."
+        assert events[2].event_type == "text-delta"
+
+    def test_v2_unknown_event_ignored(self):
+        """Unknown event types pass through without error (forward compat)."""
+        response = _make_response([
+            "event: text-delta",
+            'data: {"textDelta": "Hi"}',
+            "",
+            "event: some-future-event",
+            'data: {"foo": "bar"}',
+            "",
+            "event: text-delta",
+            'data: {"textDelta": "!"}',
+        ])
+        stream = ChatStream(response)
+        events = list(stream.events())
+
+        assert len(events) == 3
+        assert events[0].event_type == "text-delta"
+        assert events[1].event_type == "some-future-event"
+        assert events[1].raw_data == '{"foo": "bar"}'
         assert events[2].event_type == "text-delta"
 
 

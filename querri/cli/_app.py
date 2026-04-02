@@ -28,7 +28,7 @@ main_app = typer.Typer(
         "Get started:\n"
         "  [#f15a24]querri auth login[/#f15a24]              Authenticate via browser\n"
         "  [#f15a24]querri project new[/#f15a24]             Create a new project\n"
-        "  [#f15a24]querri files upload data.csv[/#f15a24]   Upload a data file\n"
+        "  [#f15a24]querri file upload data.csv[/#f15a24]    Upload a data file\n"
         "  [#f15a24]querri chat \"analyze this\"[/#f15a24]     Chat with your data"
     ),
     no_args_is_help=True,
@@ -179,11 +179,11 @@ from querri.cli.sources import sources_app
 
 main_app.add_typer(projects_app, name="project", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 main_app.add_typer(chat_app, name="chat", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
-main_app.add_typer(steps_app, name="steps", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
+main_app.add_typer(steps_app, name="step", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 main_app.add_typer(chats_app, name="chats", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]", hidden=True)
-main_app.add_typer(files_app, name="files", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
+main_app.add_typer(files_app, name="file", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 main_app.add_typer(data_app, name="data", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
-main_app.add_typer(sources_app, name="sources", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
+main_app.add_typer(sources_app, name="source", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 
 # ── Administration ──────────────────────────────────────────────────────
 from querri.cli.users import users_app
@@ -192,11 +192,11 @@ from querri.cli.keys import keys_app
 from querri.cli.policies import policies_app
 from querri.cli.sharing import sharing_app
 
-main_app.add_typer(users_app, name="users", rich_help_panel="[#f15a24]Administration[/#f15a24]")
-main_app.add_typer(dashboards_app, name="dashboards", rich_help_panel="[#f15a24]Administration[/#f15a24]")
-main_app.add_typer(keys_app, name="keys", rich_help_panel="[#f15a24]Administration[/#f15a24]")
-main_app.add_typer(policies_app, name="policies", rich_help_panel="[#f15a24]Administration[/#f15a24]")
-main_app.add_typer(sharing_app, name="sharing", rich_help_panel="[#f15a24]Administration[/#f15a24]")
+main_app.add_typer(users_app, name="user", rich_help_panel="[#f15a24]Administration[/#f15a24]")
+main_app.add_typer(dashboards_app, name="dashboard", rich_help_panel="[#f15a24]Administration[/#f15a24]")
+main_app.add_typer(keys_app, name="key", rich_help_panel="[#f15a24]Administration[/#f15a24]")
+main_app.add_typer(policies_app, name="policy", rich_help_panel="[#f15a24]Administration[/#f15a24]")
+main_app.add_typer(sharing_app, name="share", rich_help_panel="[#f15a24]Administration[/#f15a24]")
 
 # ── Advanced ────────────────────────────────────────────────────────────
 from querri.cli.embed import embed_app
