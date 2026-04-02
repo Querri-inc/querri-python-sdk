@@ -206,6 +206,9 @@ def print_json_error(
 # ---------------------------------------------------------------------------
 
 
+EXIT_SERVER_ERROR = 5
+
+
 def handle_api_error(exc: Exception, *, is_json: bool = False) -> int:
     """Handle an SDK exception, print appropriate output, return exit code.
 
@@ -217,9 +220,11 @@ def handle_api_error(exc: Exception, *, is_json: bool = False) -> int:
         Exit code to use.
     """
     from querri._exceptions import (
+        APIError,
         AuthenticationError,
         NotFoundError,
         RateLimitError,
+        ServerError,
     )
 
     if isinstance(exc, AuthenticationError):
@@ -235,14 +240,45 @@ def handle_api_error(exc: Exception, *, is_json: bool = False) -> int:
         error_type = "rate_limited"
         retry_after = getattr(exc, "retry_after", None)
         message = f"Rate limited. Retry after {retry_after}s." if retry_after else "Rate limited."
+    elif isinstance(exc, ServerError):
+        exit_code = EXIT_SERVER_ERROR
+        error_type = "server_error"
+        message = str(exc)
     else:
         exit_code = EXIT_ERROR
         error_type = "api_error"
         message = str(exc)
 
+    # Extract rich context from APIError subclasses
+    details: dict[str, str] = {}
+    if isinstance(exc, APIError):
+        if exc.status:
+            details["status"] = str(exc.status)
+        if exc.code:
+            details["code"] = exc.code
+        if exc.type:
+            details["type"] = exc.type
+        if exc.request_id:
+            details["request_id"] = exc.request_id
+        if exc.doc_url:
+            details["doc_url"] = exc.doc_url
+
     if is_json:
-        print_json_error(error_type, message, exit_code)
+        error_obj: dict[str, object] = {
+            "error": error_type,
+            "message": message,
+            "code": exit_code,
+        }
+        error_obj.update(details)
+        print(json.dumps(error_obj))
     else:
         print_error(message)
+        # Show additional context for server errors and unexpected failures
+        if details.get("code"):
+            print_error(f"  Code: {details['code']}")
+        if details.get("request_id"):
+            print_error(f"  Request ID: {details['request_id']}")
+        if details.get("doc_url"):
+            print_error(f"  Docs: {details['doc_url']}")
 
     return exit_code

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import time
 from typing import Optional
+
+logger = logging.getLogger("querri.cli")
 
 import typer
 
@@ -225,8 +228,8 @@ def select_project(
             chat_list = list(chats)
             if chat_list:
                 profile.active_chat_id = chat_list[0].id
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Could not auto-select chat: %s", exc)
 
         _save_profile(ctx, profile)
 
@@ -699,7 +702,8 @@ def _get_full_project(client: object, project_id: str) -> object | None:
         if resp.status_code != 200:
             return None
         return Project.model_validate(resp.json())
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to load full project %s: %s", project_id, exc)
         return None
 
 

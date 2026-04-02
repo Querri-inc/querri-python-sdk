@@ -10,11 +10,14 @@ if one doesn't exist yet. Designed for quick, stateful interaction:
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import signal
 import sys
 from typing import Optional
+
+logger = logging.getLogger("querri.cli")
 
 import typer
 
@@ -35,10 +38,44 @@ from querri.cli._output import (
 
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
+_STATUS_ICONS = {
+    "thinking": "💭",
+    "analyzing": "📊",
+    "executing": "⚙",
+}
+
 
 def _strip_html(text: str) -> str:
     """Strip HTML tags from a string."""
     return _HTML_TAG_RE.sub("", text).strip()
+
+
+def _setup_debug_log() -> object:
+    """Set up debug logging to ``~/.querri/debug.log``. Returns the file handle."""
+    import logging
+    from pathlib import Path
+    from datetime import datetime
+
+    log_dir = Path.home() / ".querri"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "debug.log"
+    fh = open(log_path, "a")  # noqa: SIM115
+    fh.write(f"\n{'='*60}\n")
+    fh.write(f"Debug session started: {datetime.now().isoformat()}\n")
+    fh.write(f"{'='*60}\n")
+    fh.flush()
+    print(f"  Debug log: {log_path}", file=sys.stderr)
+    return fh
+
+
+def _debug(log: object | None, msg: str) -> None:
+    """Write a timestamped line to the debug log."""
+    if log is None:
+        return
+    from datetime import datetime
+    ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    log.write(f"[{ts}] {msg}\n")  # type: ignore[union-attr]
+    log.flush()  # type: ignore[union-attr]
 
 
 chat_app = typer.Typer(
@@ -56,6 +93,7 @@ def chat_command(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Model selection."),
     new: bool = typer.Option(False, "--new", help="Force a new chat session."),
     reasoning: bool = typer.Option(False, "--reasoning", "-r", help="Show reasoning traces."),
+    debug: bool = typer.Option(False, "--debug", help="Log all stream events to ~/.querri/debug.log"),
 ) -> None:
     """Send a prompt to the active project's chat.
 
@@ -77,6 +115,11 @@ def chat_command(
     is_json = obj.get("json", False)
     is_interactive = obj.get("interactive", False)
 
+    # Set up debug logging
+    debug_log = None
+    if debug:
+        debug_log = _setup_debug_log()
+
     project_id = resolve_project_id(ctx)
     user_id = resolve_user_id(ctx)
     client = get_client(ctx)
@@ -89,6 +132,12 @@ def chat_command(
         profile = _get_profile(ctx)
         if profile and profile.active_chat_id and profile.active_project_id == project_id:
             chat_id = profile.active_chat_id
+
+    if not chat_id and not new:
+        # Try to find existing chat for this project
+        existing = _fetch_project_chat(client, project_id)
+        if existing:
+            chat_id = existing.get("uuid") or existing.get("id")
 
     if not chat_id or new:
         # Create a new chat
@@ -106,6 +155,23 @@ def chat_command(
     if profile:
         profile.active_chat_id = chat_id
         _save_profile(ctx, profile)
+
+    # Echo the user prompt before streaming
+    if not is_json and is_interactive:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+        from querri.cli._output import QUERRI_ORANGE
+        _console = Console()
+        _console.print(Panel(
+            Text(prompt),
+            title="[bold]You[/bold]", title_align="right",
+            border_style=QUERRI_ORANGE, padding=(0, 1),
+            width=min(_console.width - 10, 80),
+        ), justify="right")
+    elif not is_json:
+        from querri.cli._output import QUERRI_ORANGE
+        print(f"\n> {prompt}\n", file=sys.stderr)
 
     # Stream the response
     try:
@@ -133,9 +199,9 @@ def chat_command(
         if is_json:
             _stream_json(stream)
         elif is_interactive:
-            _stream_rich(stream, show_reasoning=reasoning)
+            _stream_rich(stream, show_reasoning=reasoning, project_id=project_id, client=client, debug_log=debug_log)
         else:
-            _stream_plain(stream, show_reasoning=reasoning)
+            _stream_plain(stream, show_reasoning=reasoning, project_id=project_id, client=client, debug_log=debug_log)
     except Exception as exc:
         if not cancelled:
             raise typer.Exit(code=handle_api_error(exc, is_json=is_json))
@@ -152,7 +218,14 @@ def chat_command(
 # ---------------------------------------------------------------------------
 
 
-def _stream_plain(stream: object, *, show_reasoning: bool = False) -> None:
+def _stream_plain(
+    stream: object,
+    *,
+    show_reasoning: bool = False,
+    project_id: str | None = None,
+    client: object | None = None,
+    debug_log: object | None = None,
+) -> None:
     from querri._streaming import ChatStream
     assert isinstance(stream, ChatStream)
 
@@ -163,8 +236,27 @@ def _stream_plain(stream: object, *, show_reasoning: bool = False) -> None:
         stream._response.close()
         return
 
+    final_steps: dict[str, dict] = {}
+    step_results_rendered = False
+    last_status = ""
+
+    _debug(debug_log, f"Stream started (project={project_id})")
+
     for event in stream.events():
-        if event.event_type == "reasoning-start":
+        _debug(debug_log, f"Event: {event.event_type} text={bool(event.text)} raw={str(event.raw_data or '')[:120]}")
+
+        if event.event_type == "status-update":
+            import json as _json
+            parsed_su = _json.loads(event.raw_data) if event.raw_data else {}
+            level = parsed_su.get("level", "thinking")
+            icon = _STATUS_ICONS.get(level, "💭")
+            msg = event.text or ""
+            if msg and msg != last_status:
+                # Overwrite previous status line with \r
+                print(f"\r\033[K  {icon} {msg}", end="", flush=True, file=sys.stderr)
+                last_status = msg
+
+        elif event.event_type == "reasoning-start":
             if show_reasoning:
                 print("\n--- Reasoning ---", file=sys.stderr)
         elif event.event_type == "reasoning-delta" and event.reasoning_text:
@@ -174,61 +266,63 @@ def _stream_plain(stream: object, *, show_reasoning: bool = False) -> None:
             if show_reasoning:
                 print("\n-----------------\n", file=sys.stderr)
         elif event.event_type == "text-delta" and event.text:
+            if last_status:
+                # Clear the status line before printing text
+                print("\r\033[K", end="", file=sys.stderr)
+                last_status = ""
             print(event.text, end="", flush=True)
+        elif event.event_type == "step-result":
+            # Immediate step result — render inline now
+            if last_status:
+                print("\r\033[K", end="", file=sys.stderr)
+                last_status = ""
+            if project_id and client:
+                from rich.console import Console
+                _render_step_result_event(Console(), event, project_id, client)
+                step_results_rendered = True
         elif event.event_type == "tool-output-available":
-            name = event.tool_name or "unknown"
-            print(f"\n[Step: {name}]", file=sys.stderr)
-            if event.tool_data and isinstance(event.tool_data, dict):
-                _print_tool_preview_plain(event.tool_data)
-        elif event.event_type == "file":
-            url = event.file_url or ""
-            media = event.media_type or ""
-            if "image" in media:
-                from querri.cli._image import download_image
-                path = download_image(url)
-                if path:
-                    print(f"\n  Chart saved: {path}", file=sys.stderr)
-                print(f"  Open chart: {url}", file=sys.stderr)
-            else:
-                print(f"\n  Open file: {url}", file=sys.stderr)
+            if event.tool_name != "usage":
+                # Only accumulate for fallback if we haven't gotten step-result events
+                if not step_results_rendered:
+                    _accumulate_tool_output(event, final_steps)
+                status = _get_step_status_short(event.tool_data)
+                if status and status != last_status:
+                    print(f"\r\033[K  ⚙ {status}", end="", flush=True, file=sys.stderr)
+                    last_status = status
         elif event.event_type == "terminate":
             reason = event.terminate_reason or "unknown"
             msg = event.terminate_message or ""
             print(f"\nStream closed: {reason}. {msg}", file=sys.stderr)
         elif event.event_type == "error":
             print(f"\nError: {event.error}", file=sys.stderr)
+
+    # Clear any remaining status line
+    if last_status:
+        print("\r\033[K", end="", file=sys.stderr)
     print()
 
+    _debug(debug_log, "Stream ended")
 
-def _print_tool_preview_plain(data: dict) -> None:
-    """Print a compact table preview for tool output in plain mode."""
-    rows = data.get("rows") or data.get("data") or data.get("results")
-    title = data.get("title") or data.get("name") or ""
-    if not isinstance(rows, list) or not rows:
-        return
-    cols = list(rows[0].keys()) if isinstance(rows[0], dict) else []
-    n_rows = len(rows)
-    n_cols = len(cols)
-    if title:
-        print(f"  {title}", file=sys.stderr)
-    print(f"  {n_cols} columns, {n_rows} rows", file=sys.stderr)
-    preview = rows[:3]
-    if cols:
-        header = " | ".join(f"{c:>12}" for c in cols[:5])
-        print(f"  {header}", file=sys.stderr)
-        for row in preview:
-            vals = [str(row.get(c, ""))[:12] for c in cols[:5]]
-            print(f"  {' | '.join(f'{v:>12}' for v in vals)}", file=sys.stderr)
-        if n_rows > 3:
-            print(f"  ... and {n_rows - 3} more rows", file=sys.stderr)
+    # Fall back to accumulated steps if no step-result events were received
+    # (older server versions that don't emit step-result)
+    if not step_results_rendered and final_steps and project_id:
+        from rich.console import Console
+        _render_accumulated_steps(Console(), final_steps, project_id, client)
 
 
-def _stream_rich(stream: object, *, show_reasoning: bool = False) -> None:
+
+def _stream_rich(
+    stream: object,
+    *,
+    show_reasoning: bool = False,
+    project_id: str | None = None,
+    client: object | None = None,
+    debug_log: object | None = None,
+) -> None:
     from rich.console import Console, Group
     from rich.live import Live
     from rich.markdown import Markdown
     from rich.panel import Panel
-    from rich.table import Table
     from rich.text import Text
 
     from querri._streaming import ChatStream
@@ -237,8 +331,10 @@ def _stream_rich(stream: object, *, show_reasoning: bool = False) -> None:
     console = Console()
     reasoning_text = ""
     response_text = ""
-    tool_panels: list[Panel | Table] = []
-    file_links: list[str] = []
+    status_line = ""  # Transient status (from server status-update or step progress)
+    # Accumulate the latest tool output per step UUID from the stream
+    final_steps: dict[str, dict] = {}
+    step_results_rendered = False
 
     def _build_display() -> Group:
         parts: list[object] = []
@@ -251,17 +347,28 @@ def _stream_rich(stream: object, *, show_reasoning: bool = False) -> None:
         elif reasoning_text and not show_reasoning:
             lines = reasoning_text.strip().count("\n") + 1
             parts.append(Text(f"  Reasoning ({lines} lines) — rerun with --reasoning to expand", style="dim"))
-        for panel in tool_panels:
-            parts.append(panel)
-        for link in file_links:
-            parts.append(link)
         if response_text:
             parts.append(Markdown(response_text))
+        # Transient status at the very bottom (replaces each time)
+        if status_line:
+            parts.append(Text(f"  {status_line}", style="dim"))
         return Group(*parts) if parts else Group(Text(""))
+
+    _debug(debug_log, f"Stream started (project={project_id})")
 
     with Live(Text(""), console=console, refresh_per_second=10) as live:
         for event in stream.events():
-            if event.event_type == "reasoning-start":
+            _debug(debug_log, f"Event: {event.event_type} text={bool(event.text)} raw={str(event.raw_data or '')[:120]}")
+
+            if event.event_type == "status-update":
+                import json as _json
+                parsed_su = _json.loads(event.raw_data) if event.raw_data else {}
+                level = parsed_su.get("level", "thinking")
+                icon = _STATUS_ICONS.get(level, "💭")
+                status_line = f"{icon} {event.text}" if event.text else ""
+                live.update(_build_display())
+
+            elif event.event_type == "reasoning-start":
                 pass
             elif event.event_type == "reasoning-delta" and event.reasoning_text:
                 reasoning_text += event.reasoning_text
@@ -269,65 +376,37 @@ def _stream_rich(stream: object, *, show_reasoning: bool = False) -> None:
             elif event.event_type == "reasoning-end":
                 live.update(_build_display())
             elif event.event_type == "text-delta" and event.text:
+                status_line = ""  # Clear status when text starts arriving
                 response_text += event.text
                 live.update(_build_display())
+            elif event.event_type == "step-result":
+                # Step completed with full result — render immediately
+                step_results_rendered = True
+                # Exit Live context temporarily to render the step panel
+                live.stop()
+                if project_id and client:
+                    _render_step_result_event(console, event, project_id, client)
+                live.start()
             elif event.event_type == "tool-output-available":
-                panel = _build_tool_panel(event.tool_name, event.tool_data)
-                if panel is not None:
-                    tool_panels.append(panel)
+                if event.tool_name != "usage":
+                    if not step_results_rendered:
+                        _accumulate_tool_output(event, final_steps)
+                    new_status = _get_step_status_short(event.tool_data)
+                    if new_status:
+                        status_line = f"⚙ {new_status}"
                     live.update(_build_display())
-            elif event.event_type == "file":
-                url = event.file_url or ""
-                media = event.media_type or ""
-                if "image" in media:
-                    from querri.cli._image import render_image_rich
-                    img_width = min(console.width - 4, 70)
-                    renderable = render_image_rich(url, caption=event.raw_data or "", max_width=img_width, max_height=24)
-                    file_links.append(renderable)
-                else:
-                    file_links.append(Text.from_markup(
-                        f"  [link={url}][bold #f15a24]📎 Open file[/bold #f15a24][/link]  [dim]{url}[/dim]"
-                    ))
-                live.update(_build_display())
             elif event.event_type == "terminate":
                 reason = event.terminate_reason or "unknown"
                 msg = event.terminate_message or "Start a new chat to continue."
-                console.print(f"\n[#f15a24]Stream closed: {reason}. {msg}[/#f15a24]")
+                console.print(f"\n[dim]Stream closed: {reason}. {msg}[/dim]")
             elif event.event_type == "error":
                 console.print(f"\n[red]Error: {event.error}[/red]")
 
+    _debug(debug_log, "Stream ended")
 
-def _build_tool_panel(tool_name: str | None, tool_data: object | None) -> object | None:
-    """Build a Rich Panel with a compact table preview for a tool result."""
-    from rich.panel import Panel
-    from rich.table import Table
-    from rich.text import Text
-
-    name = tool_name or "Result"
-    if not isinstance(tool_data, dict):
-        return Panel(Text("Step completed", style="dim"), title=f"[bold #f15a24]{name}[/bold #f15a24]", title_align="left", border_style="dim", padding=(0, 1))
-
-    rows = tool_data.get("rows") or tool_data.get("data") or tool_data.get("results")
-    title = tool_data.get("title") or tool_data.get("name") or name
-    if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
-        summary = tool_data.get("summary") or tool_data.get("message") or ""
-        return Panel(Text(str(summary)) if summary else Text("Step completed", style="dim"), title=f"[bold #f15a24]{title}[/bold #f15a24]", title_align="left", border_style="dim", padding=(0, 1))
-
-    cols = list(rows[0].keys())
-    show_cols = cols[:6]
-    table = Table(title=f"[bold #f15a24]{title}[/bold #f15a24]", caption=f"{len(rows)} rows × {len(cols)} columns", caption_style="dim", show_header=True, header_style="bold", border_style="dim", padding=(0, 1), expand=False)
-    for col in show_cols:
-        table.add_column(col)
-    if len(cols) > 6:
-        table.add_column("…", style="dim")
-    for row in rows[:5]:
-        vals = [str(row.get(c, ""))[:20] for c in show_cols]
-        if len(cols) > 6:
-            vals.append("…")
-        table.add_row(*vals)
-    if len(rows) > 5:
-        table.add_row(*["…"] * len(show_cols) + ([""] if len(cols) > 6 else []), style="dim")
-    return table
+    # Fall back to accumulated steps if no step-result events were received
+    if not step_results_rendered and final_steps and project_id:
+        _render_accumulated_steps(console, final_steps, project_id, client)
 
 
 def _stream_json(stream: object) -> None:
@@ -366,6 +445,181 @@ def _stream_json(stream: object) -> None:
         result["usage"] = usage
 
     print_json(result)
+
+
+# ---------------------------------------------------------------------------
+# Streaming step accumulation + post-stream rendering
+# ---------------------------------------------------------------------------
+
+
+def _accumulate_tool_output(event: object, final_steps: dict[str, dict]) -> None:
+    """Accumulate the latest step data from a ``tool-output-available`` stream event.
+
+    The server sends multiple progress updates per step. We keep the latest
+    data for each step UUID, keyed by UUID. The final event with
+    ``status: "success"`` has the complete ``result`` data.
+    """
+    tool_data = getattr(event, "tool_data", None)
+    if not isinstance(tool_data, dict):
+        return
+    steps = tool_data.get("steps")
+    if not isinstance(steps, dict):
+        return
+    for sid, sdata in steps.items():
+        if isinstance(sdata, dict):
+            final_steps[sid] = sdata
+
+
+def _get_step_status(tool_data: object) -> str:
+    """Extract a human-readable status string from a tool-output-available event."""
+    if not isinstance(tool_data, dict):
+        return ""
+    msg = tool_data.get("message", "")
+    if msg:
+        return msg
+    steps = tool_data.get("steps", {})
+    if isinstance(steps, dict):
+        for sdata in steps.values():
+            if isinstance(sdata, dict):
+                name = sdata.get("name", "")
+                status = sdata.get("status", "")
+                if name:
+                    return f"{name} — {status}" if status else name
+    return ""
+
+
+def _get_step_status_short(tool_data: object) -> str:
+    """Extract a concise status — only shows step name when running or completing."""
+    if not isinstance(tool_data, dict):
+        return ""
+    status_msg = tool_data.get("status", "")
+    # Only show the final "success" / completion, not intermediate repeats
+    if status_msg == "success":
+        return ""  # suppress — we'll render the full step result below
+    steps = tool_data.get("steps", {})
+    if not isinstance(steps, dict):
+        return ""
+    for sdata in steps.values():
+        if isinstance(sdata, dict):
+            name = sdata.get("name", "")
+            status = sdata.get("status", "")
+            sm = sdata.get("status_message", "")
+            if name and status in ("running", "starting"):
+                return f"{name}{'  ' + sm if sm else ''}…"
+            if name and status == "complete":
+                return f"{name} ✓"
+    return ""
+
+
+def _render_step_result_event(
+    console: object,
+    event: object,
+    project_id: str,
+    client: object,
+) -> None:
+    """Render a step-result event inline during streaming."""
+    result = getattr(event, "step_result", None) or {}
+    tool_name = getattr(event, "tool_name", "") or ""
+
+    base_url, auth_headers = _resolve_internal_url(client)
+
+    _ICONS = {
+        "duckdb_query": "🔍", "draw_figure": "📊", "source": "📂",
+        "add_source": "📂", "load": "📂", "python": "🐍", "coder": "🐍",
+    }
+
+    qdf = result.get("qdf") or {}
+    if isinstance(qdf, str):
+        qdf = {}
+    step = {
+        "name": result.get("name") or tool_name,
+        "type": tool_name,
+        "status": "complete",
+        "has_data": bool(isinstance(qdf, dict) and (qdf.get("uuid") or qdf.get("num_rows"))),
+        "has_figure": bool(result.get("figure_url") or result.get("svg_url")),
+        "figure_url": result.get("figure_url"),
+        "message": result.get("message"),
+        "num_rows": qdf.get("num_rows") if isinstance(qdf, dict) else None,
+        "num_cols": qdf.get("num_cols") if isinstance(qdf, dict) else None,
+        "headers": qdf.get("headers") if isinstance(qdf, dict) else None,
+    }
+
+    step_id = (qdf.get("uuid") if isinstance(qdf, dict) else None) or result.get("qdf_uuid") or "step"
+    _render_inline_step(console, step_id, step, project_id, base_url, auth_headers, _ICONS)
+
+
+def _render_accumulated_steps(
+    console: object,
+    final_steps: dict[str, dict],
+    project_id: str,
+    client: object | None = None,
+) -> None:
+    """Render step results accumulated from the SSE stream."""
+    base_url = ""
+    auth_headers: dict[str, str] = {}
+    if client:
+        base_url, auth_headers = _resolve_internal_url(client)
+
+    _ICONS = {
+        "duckdb_query": "🔍", "draw_figure": "📊", "source": "📂",
+        "add_source": "📂", "load": "📂", "python": "🐍", "coder": "🐍",
+    }
+
+    rendered = False
+    for sid, sdata in final_steps.items():
+        # Only render steps that completed (have result data)
+        status = sdata.get("status", "")
+        if status not in ("complete", "success"):
+            continue
+        step = _merge_step_data(sdata, {})
+        if not step.get("name"):
+            continue
+        _render_inline_step(console, sid, step, project_id, base_url, auth_headers, _ICONS)
+        rendered = True
+
+    if rendered:
+        console.print()  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# querri chat cancel — cancel active chat stream on the current project
+# ---------------------------------------------------------------------------
+
+
+@chat_app.command("cancel")
+def chat_cancel(ctx: typer.Context) -> None:
+    """Cancel the active chat stream on the current project.
+
+    Sends a cancel signal to the server to stop any running execution.
+
+    Example:
+        querri chat cancel
+    """
+    obj = ctx.ensure_object(dict)
+    is_json = obj.get("json", False)
+    project_id = resolve_project_id(ctx)
+    client = get_client(ctx)
+
+    # Find the active chat
+    profile = _get_profile(ctx)
+    chat_id = (profile.active_chat_id if profile else None) or None
+    if not chat_id:
+        existing = _fetch_project_chat(client, project_id)
+        if existing:
+            chat_id = existing.get("uuid") or existing.get("id")
+
+    if not chat_id:
+        print_error("No active chat to cancel.")
+        raise typer.Exit(code=1)
+
+    try:
+        result = client.projects.chats.cancel(project_id, chat_id)
+        if is_json:
+            print_json({"cancelled": result.cancelled, "chat_id": chat_id})
+        else:
+            print_success(f"Cancelled chat {chat_id}")
+    except Exception as exc:
+        raise typer.Exit(code=handle_api_error(exc, is_json=is_json))
 
 
 # ---------------------------------------------------------------------------
@@ -446,19 +700,37 @@ def _fetch_project_chat(client: object, project_id: str) -> dict | None:
                 return data[0]
             elif isinstance(data, dict):
                 return data
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to fetch project chat: %s", exc)
     return None
 
 
 def _resolve_internal_url(client: object) -> tuple[str, dict[str, str]]:
-    """Extract internal API base URL and auth headers from the SDK client."""
+    """Extract internal API base URL and auth headers from the SDK client.
+
+    If the client's token came from the token store, refresh it if needed
+    so that post-stream operations (image downloads) use a valid token.
+    """
     try:
         http = client._http  # type: ignore[attr-defined]
         base_url = str(http._client.base_url).replace("/api/v1", "").rstrip("/")
         auth_headers = {k: v for k, v in http._client.headers.items() if k.lower() == "authorization"}
+
+        # Try to refresh token if it may have expired during a long stream
+        try:
+            from querri._auth import TokenStore, needs_refresh, refresh_tokens
+            store = TokenStore.load()
+            profile = store.profiles.get("default")
+            if profile and profile.access_token and needs_refresh(profile):
+                profile = refresh_tokens(profile, base_url)
+                store.save_profile("default", profile)
+                auth_headers["authorization"] = f"Bearer {profile.access_token}"
+        except Exception as exc:
+            logger.debug("Token refresh failed (best effort): %s", exc)
+
         return base_url, auth_headers
-    except Exception:
+    except Exception as exc:
+        logger.debug("Failed to resolve internal URL: %s", exc)
         return "", {}
 
 
@@ -492,8 +764,8 @@ def _fetch_step_data_preview(
         )
         if resp.status_code == 200:
             return resp.json().get("data", [])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed to fetch step data preview for %s: %s", step_id, exc)
     return None
 
 
@@ -542,11 +814,20 @@ def _render_messages_with_parts(
                 console.print(Panel(
                     Text(user_text),
                     title="[bold]You[/bold]", title_align="right",
-                    border_style="blue", padding=(0, 1),
+                    border_style=QUERRI_ORANGE, padding=(0, 1),
                     width=min(console.width - 10, 80),
                 ), justify="right")
 
         elif role == "assistant":
+            # Fallback: if parts[] is empty, reconstruct from stream_chunks
+            if not parts:
+                chunks = msg.get("stream_chunks") or []
+                if chunks:
+                    parts = _parse_stream_chunks(chunks, step_store)
+                elif msg.get("content"):
+                    # Plain content fallback (no parts, no chunks)
+                    parts = [{"type": "text", "text": msg["content"]}]
+
             for part in parts:
                 ptype = part.get("type", "")
 
@@ -555,8 +836,8 @@ def _render_messages_with_parts(
                     if text:
                         console.print(Panel(
                             Markdown(text),
-                            title=f"[bold {QUERRI_ORANGE}]Querri[/bold {QUERRI_ORANGE}]",
-                            title_align="left", border_style=QUERRI_ORANGE,
+                            title=f"[bold dim]Querri[/bold dim]",
+                            title_align="left", border_style="dim",
                             padding=(0, 1),
                         ))
 
@@ -598,6 +879,100 @@ def _render_messages_with_parts(
                         _render_inline_step(console, sid, step, project_id, base_url, auth_headers, _ICONS)
 
     console.print()
+
+
+def _parse_stream_chunks(chunks: list[str], step_store: dict[str, dict]) -> list[dict]:
+    """Reconstruct ``parts[]`` from raw SSE ``stream_chunks``.
+
+    The server stores newer messages as raw SSE lines (e.g.
+    ``data: {"type":"text-delta","delta":"..."}``).  The browser parses
+    these client-side; the CLI needs to do the same.
+    """
+    import json
+
+    text_buf: list[str] = []
+    reasoning_buf: list[str] = []
+    in_reasoning = False
+    parts: list[dict] = []
+    # Track the last tool-output-available per toolCallId (final has full data)
+    tool_outputs: dict[str, dict] = {}
+
+    for raw in chunks:
+        line = raw.strip()
+        if not line or line.startswith(":"):
+            continue
+        # Extract data payload
+        if line.startswith("data: "):
+            payload = line[6:]
+        elif len(line) >= 2 and line[1] == ":":
+            payload = line[2:]
+        else:
+            continue
+
+        try:
+            obj = json.loads(payload)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(obj, dict):
+            continue
+
+        etype = obj.get("type", "")
+
+        if etype == "text-delta":
+            delta = obj.get("textDelta") or obj.get("delta", "")
+            if delta:
+                # Flush reasoning if we were in a reasoning block
+                if in_reasoning and reasoning_buf:
+                    parts.append({"type": "reasoning", "reasoning": "".join(reasoning_buf)})
+                    reasoning_buf.clear()
+                    in_reasoning = False
+                text_buf.append(delta)
+
+        elif etype == "reasoning-start":
+            # Flush any text before reasoning
+            if text_buf:
+                parts.append({"type": "text", "text": "".join(text_buf)})
+                text_buf.clear()
+            in_reasoning = True
+
+        elif etype == "reasoning-delta":
+            delta = obj.get("textDelta") or obj.get("delta", "")
+            if delta:
+                reasoning_buf.append(delta)
+
+        elif etype == "reasoning-end":
+            if reasoning_buf:
+                parts.append({"type": "reasoning", "reasoning": "".join(reasoning_buf)})
+                reasoning_buf.clear()
+            in_reasoning = False
+
+        elif etype == "tool-output-available":
+            output = obj.get("output", {})
+            tcid = obj.get("toolCallId", "")
+            tool_name = obj.get("toolName", "")
+            if isinstance(output, dict) and tcid:
+                tool_outputs[tcid] = output
+
+        elif etype == "tool-input-available":
+            tool_name = obj.get("toolName", "")
+
+    # Flush remaining buffers
+    if reasoning_buf:
+        parts.append({"type": "reasoning", "reasoning": "".join(reasoning_buf)})
+    if text_buf:
+        parts.append({"type": "text", "text": "".join(text_buf)})
+
+    # Add tool parts from accumulated outputs (final per toolCallId)
+    for tcid, output in tool_outputs.items():
+        if output.get("status") in ("success", "running"):
+            steps = output.get("steps", {})
+            if isinstance(steps, dict) and steps:
+                parts.append({
+                    "type": "tool-plan",
+                    "output": output,
+                })
+
+    return parts
 
 
 def _merge_step_data(embedded: dict, from_store: dict) -> dict:

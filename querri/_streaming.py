@@ -41,6 +41,7 @@ class ChatStreamEvent:
     - ``file``: ``file_url`` and ``media_type``.
     - ``error``: ``error`` message.
     - ``finish``: ``usage`` dict with credits/tokens.
+    - ``status-update``: ``text`` has the message, ``raw_data`` has the JSON.
     - ``terminate``: ``terminate_reason`` and ``terminate_message``.
     - Unknown types: ``raw_data`` contains the unparsed data string.
     """
@@ -68,10 +69,17 @@ class ChatStreamEvent:
 def _parse_sse_line(line: str) -> Optional[tuple[str, str]]:
     """Parse a single SSE line into (type_prefix, data).
 
-    Returns None for empty lines, comments, or unparseable lines.
+    Returns None for empty lines and unparseable lines.
+    SSE comments starting with ``:`` are checked for status-update payloads.
     """
     line = line.strip()
-    if not line or line.startswith(":"):
+    if not line:
+        return None
+
+    # SSE comments — check for status-update payload
+    if line.startswith(":"):
+        if line.startswith(": status-update "):
+            return ("status-update", line[16:])
         return None
 
     # Vercel AI SDK v1 format: "0:text chunk" or "e:event" or "d:done"
@@ -116,10 +124,20 @@ def _build_event(event_type: str, data: str) -> ChatStreamEvent:
             return ChatStreamEvent(event_type=event_type, text=text)
 
         case "tool-output-available":
+            output = parsed.get("output") if parsed else None
+            # Check for step-result subtype (sent when a step completes
+            # with full result data including figure_url, qdf, etc.)
+            if isinstance(output, dict) and output.get("type") == "step-result":
+                return ChatStreamEvent(
+                    event_type="step-result",
+                    tool_name=output.get("stepType") or output.get("stepName"),
+                    step_result=output.get("result"),
+                    raw_data=data,
+                )
             return ChatStreamEvent(
                 event_type=event_type,
                 tool_name=parsed.get("toolName") if parsed else None,
-                tool_data=parsed.get("output") if parsed else None,
+                tool_data=output,
                 raw_data=data,
             )
 
@@ -203,6 +221,25 @@ def _build_event_from_json(data: str) -> Optional[ChatStreamEvent]:
             )
         case "tool-call-delta":
             return None  # Intermediate tool output, skip
+        case "tool-input-available":
+            return None  # Plan input, skip
+        case "tool-output-available":
+            output = parsed.get("output") or {}
+            tool_call_id = parsed.get("toolCallId")
+            # Check for step-result subtype
+            if isinstance(output, dict) and output.get("type") == "step-result":
+                return ChatStreamEvent(
+                    event_type="step-result",
+                    tool_name=output.get("stepType") or output.get("stepName"),
+                    step_result=output.get("result"),
+                    raw_data=data,
+                )
+            return ChatStreamEvent(
+                event_type="tool-output-available",
+                tool_name=parsed.get("toolName") or (output.get("message", "").split(" - ")[0].replace("Step ", "") if output.get("message") else None),
+                tool_data=output,
+                raw_data=data,
+            )
 
         # Choices (Querri's suggestion cards)
         case "choices":
@@ -225,7 +262,7 @@ def _build_event_from_json(data: str) -> Optional[ChatStreamEvent]:
         # Stream lifecycle
         case "start":
             return None
-        case "start-step" | "end-step":
+        case "start-step" | "end-step" | "finish-step":
             return None
         case "reasoning-start" | "reasoning-end":
             return ChatStreamEvent(event_type=event_type)
@@ -349,6 +386,19 @@ class ChatStream:
                     continue
 
                 prefix, data = parsed
+
+                # Status-update from SSE comment
+                if prefix == "status-update":
+                    parsed_su = _parse_json_safe(data)
+                    if parsed_su:
+                        event = ChatStreamEvent(
+                            event_type="status-update",
+                            raw_data=data,
+                            text=parsed_su.get("message"),
+                        )
+                        self._events.append(event)
+                        yield event
+                    continue
 
                 # v2 SSE: "event: <type>" followed by "data: <payload>"
                 if prefix == "event":

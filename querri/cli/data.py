@@ -249,20 +249,29 @@ def query_data(
 def ask_data(
     ctx: typer.Context,
     source_id: Optional[str] = typer.Argument(default=None, help="Source ID."),
-    question: Optional[str] = typer.Option(None, "--question", "-q", help="Natural language question."),
+    question_arg: Optional[str] = typer.Argument(default=None, help="Natural language question."),
+    question_opt: Optional[str] = typer.Option(None, "--question", "-q", help="Natural language question."),
 ) -> None:
-    """Ask a natural language question about a data source."""
+    """Ask a natural language question about a data source.
+
+    Examples:
+        querri data ask SOURCE_ID "What are my top 10?"
+        querri data ask SOURCE_ID --question "What are my top 10?"
+    """
+    # Merge positional and option forms — option takes priority
+    question = question_opt or question_arg
+
     if source_id is None:
         if sys.stdin.isatty():
             source_id = input("Source ID: ").strip()
         else:
-            print_error("Missing required argument <SOURCE_ID>. Usage: querri data ask <SOURCE_ID> --question <QUESTION>")
+            print_error("Missing required argument <SOURCE_ID>. Usage: querri data ask <SOURCE_ID> \"<QUESTION>\"")
             raise typer.Exit(code=1)
     if question is None:
         if sys.stdin.isatty():
             question = input("Question: ").strip()
         else:
-            print_error("Missing required option --question. Usage: querri data ask <SOURCE_ID> --question <QUESTION>")
+            print_error("Missing question. Usage: querri data ask <SOURCE_ID> \"<QUESTION>\"")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)

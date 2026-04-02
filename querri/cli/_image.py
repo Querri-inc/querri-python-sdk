@@ -61,33 +61,45 @@ def download_image(
     url: str,
     *,
     headers: dict[str, str] | None = None,
+    retries: int = 2,
 ) -> Optional[Path]:
     """Download an image to the local cache. Returns the path or None on error.
+
+    Retries on failure (useful when the file was just created and may
+    not be immediately available from the storage backend).
 
     Args:
         url: Image URL to download.
         headers: Optional auth headers for authenticated endpoints.
+        retries: Number of retry attempts on failure.
     """
+    import time
+
     import httpx
 
     cached = _cache_path(url)
     if cached.exists():
         return cached
 
-    try:
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        resp = httpx.get(
-            url,
-            headers=headers or {},
-            follow_redirects=True,
-            timeout=15.0,
-        )
-        resp.raise_for_status()
-        cached.write_bytes(resp.content)
-        return cached
-    except Exception as exc:
-        logger.debug("Failed to download image %s: %s", url, exc)
-        return None
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(retries + 1):
+        try:
+            resp = httpx.get(
+                url,
+                headers=headers or {},
+                follow_redirects=True,
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+            cached.write_bytes(resp.content)
+            return cached
+        except Exception as exc:
+            logger.debug("Image download attempt %d/%d failed for %s: %s", attempt + 1, retries + 1, url, exc)
+            if attempt < retries:
+                time.sleep(1.0)
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -207,8 +219,9 @@ def render_image_rich(
         ))
         return Text("\n").join(parts)
     else:
-        # Fallback: clickable link
+        # Fallback: clickable link + hint
         return Text.from_markup(
             f"  [link={url}][bold #f15a24]View chart[/bold #f15a24][/link]"
-            f"  [dim]{url}[/dim]"
+            f"  [dim]{url}[/dim]\n"
+            f"  [dim]Run [bold]querri chat show[/bold] to render inline[/dim]"
         )

@@ -154,8 +154,8 @@ class TestErrorHandling:
             )
             assert result.exit_code == 4
 
-    def test_general_error_exit_code_1(self) -> None:
-        """General error → exit code 1."""
+    def test_server_error_exit_code_5(self) -> None:
+        """Server error → exit code 5."""
         from querri._exceptions import ServerError
 
         mock_client = MagicMock()
@@ -168,7 +168,7 @@ class TestErrorHandling:
                 main_app,
                 ["--api-key", "qk_test123456", "--org-id", "org_1", "project", "get", "proj_1"],
             )
-            assert result.exit_code == 1
+            assert result.exit_code == 5
 
     def test_not_found_json_mode(self) -> None:
         """--json + 404 → JSON error on stdout."""
