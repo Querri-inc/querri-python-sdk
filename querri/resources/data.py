@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from .._base_client import AsyncHTTPClient, SyncHTTPClient
 from .._pagination import AsyncCursorPage, SyncCursorPage
-from ..types.data import DataPage, DataWriteResult, QueryResult, Source
+from ..types.data import DataPage, DataWriteResult, DeleteResult, QueryResult, Source
 
 
 class Data:
@@ -42,17 +42,17 @@ class Data:
         )
         return Source.model_validate(resp.json())
 
-    def delete_source(self, source_id: str) -> Dict[str, Any]:
+    def delete_source(self, source_id: str) -> DeleteResult:
         """Delete a data source and its associated data.
 
         Args:
             source_id: The source UUID.
 
         Returns:
-            Dict with id and deleted status.
+            DeleteResult with id and deleted status.
         """
         resp = self._http.delete(f"/data/sources/{source_id}")
-        return resp.json()
+        return DeleteResult.model_validate(resp.json())
 
     def sources(
         self,
@@ -193,17 +193,17 @@ class AsyncData:
         )
         return Source.model_validate(resp.json())
 
-    async def delete_source(self, source_id: str) -> Dict[str, Any]:
+    async def delete_source(self, source_id: str) -> DeleteResult:
         """Delete a data source and its associated data.
 
         Args:
             source_id: The source UUID.
 
         Returns:
-            Dict with id and deleted status.
+            DeleteResult with id and deleted status.
         """
         resp = await self._http.delete(f"/data/sources/{source_id}")
-        return resp.json()
+        return DeleteResult.model_validate(resp.json())
 
     def sources(
         self,

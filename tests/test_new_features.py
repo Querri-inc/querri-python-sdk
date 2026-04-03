@@ -78,7 +78,7 @@ class TestDataWriteOperations:
         respx.post("https://test.querri.com/api/v1/data/sources/src_1/rows").mock(
             return_value=httpx.Response(
                 200,
-                json={"source_id": "src_1", "rows_affected": 3},
+                json={"id": "src_1", "name": "test", "columns": ["a"], "row_count": 3, "updated_at": "2026-01-01T00:00:00Z"},
             )
         )
         http = SyncHTTPClient(_make_config())
@@ -86,8 +86,8 @@ class TestDataWriteOperations:
 
         data = Data(http)
         result = data.append_rows("src_1", rows=[{"a": 1}, {"a": 2}, {"a": 3}])
-        assert result.source_id == "src_1"
-        assert result.rows_affected == 3
+        assert result.id == "src_1"
+        assert result.row_count == 3
         http.close()
 
     @respx.mock
@@ -96,7 +96,7 @@ class TestDataWriteOperations:
         respx.put("https://test.querri.com/api/v1/data/sources/src_1/data").mock(
             return_value=httpx.Response(
                 200,
-                json={"source_id": "src_1", "rows_affected": 5},
+                json={"id": "src_1", "name": "test", "columns": ["x"], "row_count": 5, "updated_at": "2026-01-01T00:00:00Z"},
             )
         )
         http = SyncHTTPClient(_make_config())
@@ -104,8 +104,8 @@ class TestDataWriteOperations:
 
         data = Data(http)
         result = data.replace_data("src_1", rows=[{"x": i} for i in range(5)])
-        assert result.source_id == "src_1"
-        assert result.rows_affected == 5
+        assert result.id == "src_1"
+        assert result.row_count == 5
         http.close()
 
 
