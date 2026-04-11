@@ -112,6 +112,7 @@ class Chats:
         prompt: str,
         user_id: str,
         model: Optional[str] = None,
+        experimental_v2: bool = False,
     ) -> ChatStream:
         """Send a message and stream the AI response via SSE.
 
@@ -121,6 +122,7 @@ class Chats:
             prompt: The user message to send.
             user_id: User ID (or external ID) sending the message.
             model: Optional model selection (default "standard").
+            experimental_v2: Use experimental v2 agent (faster, direct SQL execution).
 
         Returns:
             A ``ChatStream`` that yields text chunks.
@@ -141,6 +143,8 @@ class Chats:
         }
         if model is not None:
             body["model"] = model
+        if experimental_v2:
+            body["experimentalV2"] = True
         response = self._http.post(
             f"/projects/{project_id}/chats/{chat_id}/stream",
             json=body,
@@ -265,6 +269,7 @@ class AsyncChats:
         prompt: str,
         user_id: str,
         model: Optional[str] = None,
+        experimental_v2: bool = False,
     ) -> AsyncChatStream:
         """Send a message and stream the AI response via SSE.
 
@@ -274,6 +279,7 @@ class AsyncChats:
             prompt: The user message to send.
             user_id: User ID (or external ID) sending the message.
             model: Optional model selection (default "standard").
+            experimental_v2: Use experimental v2 agent (faster, direct SQL execution).
 
         Returns:
             An ``AsyncChatStream`` that yields text chunks.
@@ -294,6 +300,8 @@ class AsyncChats:
         }
         if model is not None:
             body["model"] = model
+        if experimental_v2:
+            body["experimentalV2"] = True
         response = await self._http.post(
             f"/projects/{project_id}/chats/{chat_id}/stream",
             json=body,

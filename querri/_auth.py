@@ -157,9 +157,14 @@ class TokenStore:
         """Atomically write the token store to disk with secure permissions.
 
         Writes to a temp file first, then renames to prevent corruption.
-        Skips persistence if stdin is not a TTY (non-interactive / CI).
+        Skips persistence only in explicit CI environments to avoid
+        accidentally writing credentials in automated pipelines.
         """
-        if not sys.stdin.isatty():
+        # Only skip in clearly automated environments. The old isatty() check
+        # was too aggressive — it blocked saves from VSCode terminals, tmux,
+        # screen, WSL, Claude Code, and any piped context. CI pipelines set
+        # a CI env var; that's the right signal.
+        if os.environ.get("CI"):
             return
 
         # Ensure directory exists with 0700

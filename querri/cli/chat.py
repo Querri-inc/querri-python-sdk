@@ -93,6 +93,7 @@ def chat_command(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Model selection."),
     new: bool = typer.Option(False, "--new", help="Force a new chat session."),
     reasoning: bool = typer.Option(False, "--reasoning", "-r", help="Show reasoning traces."),
+    experimental_v2: bool = typer.Option(False, "--experimental-v2", "--v2", help="Use experimental v2 agent (faster, direct SQL execution)."),
     debug: bool = typer.Option(False, "--debug", help="Log all stream events to ~/.querri/debug.log"),
 ) -> None:
     """Send a prompt to the active project's chat.
@@ -181,6 +182,7 @@ def chat_command(
             prompt=prompt,
             user_id=user_id,
             model=model,
+            experimental_v2=experimental_v2,
         )
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=is_json))
