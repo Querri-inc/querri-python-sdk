@@ -32,7 +32,7 @@ def new_view(
     name: Optional[str] = typer.Option(None, "--name", "-n", help="View name."),
     sql: Optional[str] = typer.Option(None, "--sql", "-s", help="SQL definition."),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="View description."),
-    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="Describe the view with AI (optional)."),
+    prompt: Optional[str] = typer.Option(None, "--prompt", help="Describe the view with AI (optional)."),
 ) -> None:
     """Create a new view — directly with SQL or via the AI authoring agent.
 
@@ -74,17 +74,17 @@ def new_view(
         except Exception as exc:
             raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
-        view_uuid = result.get("id", result.get("uuid", ""))
-        print(f"Created draft view {view_uuid}", file=sys.stderr, flush=True)
+        view_id = result.get("id", result.get("uuid", ""))
+        print(f"Created draft view {view_id}", file=sys.stderr, flush=True)
 
         # Run the authoring agent
         try:
-            stream = client.views.chat(view_uuid, message=prompt)
+            stream = client.views.chat(view_id, message=prompt)
             _print_sse_stream(stream)
         except Exception as exc:
             print_error(f"Agent error: {exc}")
             print(
-                f"\nView UUID: {view_uuid} (draft — use 'querri view chat' to continue)",
+                f"\nView UUID: {view_id} (draft — use 'querri view chat' to continue)",
                 file=sys.stderr,
             )
             raise typer.Exit(code=1)
@@ -94,7 +94,7 @@ def new_view(
         generated_desc = description or ""
         if not name:
             try:
-                meta = client.views.generate_metadata(view_uuid)
+                meta = client.views.generate_metadata(view_id)
                 generated_name = meta.get("name", "")
                 generated_desc = meta.get("description", "")
                 if generated_name:
@@ -105,11 +105,11 @@ def new_view(
                 print(f"\n  (metadata generation failed: {exc})", file=sys.stderr)
 
         if obj.get("json"):
-            print_json({"id": view_uuid, "name": generated_name, "description": generated_desc})
+            print_json({"id": view_id, "name": generated_name, "description": generated_desc})
         elif obj.get("quiet"):
-            print_id(view_uuid)
+            print_id(view_id)
         else:
-            print(f"\n  View: {view_uuid}", file=sys.stderr)
+            print(f"\n  View: {view_id}", file=sys.stderr)
 
     elif sql:
         # ── Direct create flow ────────────────────────────────────────────────
@@ -166,19 +166,19 @@ def list_views(
 @view_app.command("get")
 def get_view(
     ctx: typer.Context,
-    view_uuid: Optional[str] = typer.Argument(default=None, help="View UUID."),
+    view_id: Optional[str] = typer.Argument(default=None, help="View UUID."),
 ) -> None:
     """Get view details."""
-    if view_uuid is None:
+    if view_id is None:
         if sys.stdin.isatty():
-            view_uuid = input("View UUID: ").strip()
+            view_id = input("View UUID: ").strip()
         else:
             print_error("Missing required argument <VIEW_UUID>. Usage: querri view get <VIEW_UUID>")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
     try:
-        view = client.views.get(view_uuid)
+        view = client.views.get(view_id)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
@@ -196,14 +196,14 @@ def get_view(
 @view_app.command("update")
 def update_view(
     ctx: typer.Context,
-    view_uuid: Optional[str] = typer.Argument(default=None, help="View UUID."),
+    view_id: Optional[str] = typer.Argument(default=None, help="View UUID."),
     sql: Optional[str] = typer.Option(None, "--sql", "-s", help="Updated SQL definition."),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="Updated description."),
 ) -> None:
     """Update a view's SQL definition or description."""
-    if view_uuid is None:
+    if view_id is None:
         if sys.stdin.isatty():
-            view_uuid = input("View UUID: ").strip()
+            view_id = input("View UUID: ").strip()
         else:
             print_error("Missing required argument <VIEW_UUID>. Usage: querri view update <VIEW_UUID>")
             raise typer.Exit(code=1)
@@ -211,45 +211,45 @@ def update_view(
     client = get_client(ctx)
 
     try:
-        result = client.views.update(view_uuid, sql_definition=sql, description=description)
+        result = client.views.update(view_id, sql_definition=sql, description=description)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
     if obj.get("json"):
         print_json(result)
     else:
-        print_success(f"Updated view {view_uuid}")
+        print_success(f"Updated view {view_id}")
 
 
 @view_app.command("delete")
 def delete_view(
     ctx: typer.Context,
-    view_uuid: Optional[str] = typer.Argument(default=None, help="View UUID."),
+    view_id: Optional[str] = typer.Argument(default=None, help="View UUID."),
 ) -> None:
     """Delete a view."""
-    if view_uuid is None:
+    if view_id is None:
         if sys.stdin.isatty():
-            view_uuid = input("View UUID: ").strip()
+            view_id = input("View UUID: ").strip()
         else:
             print_error("Missing required argument <VIEW_UUID>. Usage: querri view delete <VIEW_UUID>")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
     try:
-        client.views.delete(view_uuid)
+        client.views.delete(view_id)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
     if obj.get("json"):
-        print_json({"uuid": view_uuid, "deleted": True})
+        print_json({"uuid": view_id, "deleted": True})
     else:
-        print_success(f"Deleted view {view_uuid}")
+        print_success(f"Deleted view {view_id}")
 
 
 @view_app.command("run")
 def run_views(
     ctx: typer.Context,
-    view_uuids: Optional[str] = typer.Option(None, "--view-uuids", help="Comma-separated view UUIDs to materialize."),
+    view_ids: Optional[str] = typer.Option(None, "--view-uuids", help="Comma-separated view UUIDs to materialize."),
 ) -> None:
     """Run view materialization.
 
@@ -259,11 +259,11 @@ def run_views(
     client = get_client(ctx)
 
     uuids = None
-    if view_uuids:
-        uuids = [u.strip() for u in view_uuids.split(",") if u.strip()]
+    if view_ids:
+        uuids = [u.strip() for u in view_ids.split(",") if u.strip()]
 
     try:
-        result = client.views.run(view_uuids=uuids)
+        result = client.views.run(view_ids=uuids)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
@@ -278,13 +278,13 @@ def run_views(
 @view_app.command("preview")
 def preview_view(
     ctx: typer.Context,
-    view_uuid: Optional[str] = typer.Argument(default=None, help="View UUID."),
+    view_id: Optional[str] = typer.Argument(default=None, help="View UUID."),
     limit: int = typer.Option(100, "--limit", "-l", help="Max rows to return."),
 ) -> None:
     """Preview view results without materializing."""
-    if view_uuid is None:
+    if view_id is None:
         if sys.stdin.isatty():
-            view_uuid = input("View UUID: ").strip()
+            view_id = input("View UUID: ").strip()
         else:
             print_error("Missing required argument <VIEW_UUID>. Usage: querri view preview <VIEW_UUID>")
             raise typer.Exit(code=1)
@@ -292,7 +292,7 @@ def preview_view(
     client = get_client(ctx)
 
     try:
-        result = client.views.preview(view_uuid, limit=limit)
+        result = client.views.preview(view_id, limit=limit)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
@@ -355,7 +355,7 @@ def _print_sse_stream(stream) -> None:
 @view_app.command("chat")
 def chat_with_view(
     ctx: typer.Context,
-    view_uuid: Optional[str] = typer.Argument(default=None, help="View UUID."),
+    view_id: Optional[str] = typer.Argument(default=None, help="View UUID."),
     message: Optional[str] = typer.Option(None, "--message", "-m", help="Message for the view agent."),
 ) -> None:
     """Chat with the view authoring agent to create or refine SQL.
@@ -364,9 +364,9 @@ def chat_with_view(
         querri view chat <UUID> -m "join customers with orders by customer_id"
         querri view chat <UUID> -m "add a filter for active customers only"
     """
-    if view_uuid is None:
+    if view_id is None:
         if sys.stdin.isatty():
-            view_uuid = input("View UUID: ").strip()
+            view_id = input("View UUID: ").strip()
         else:
             print_error("Missing required argument <VIEW_UUID>. Usage: querri view chat <VIEW_UUID> -m <MESSAGE>")
             raise typer.Exit(code=1)
@@ -381,7 +381,7 @@ def chat_with_view(
     client = get_client(ctx)
 
     try:
-        stream = client.views.chat(view_uuid, message=message)
+        stream = client.views.chat(view_id, message=message)
         _print_sse_stream(stream)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))

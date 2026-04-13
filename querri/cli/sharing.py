@@ -17,10 +17,18 @@ from querri.cli._output import (
 )
 
 sharing_app = typer.Typer(
-    name="sharing",
+    name="share",
     help="Share projects, dashboards, and sources with users.",
     no_args_is_help=True,
 )
+
+share_project_app = typer.Typer(name="project", help="Share projects.", no_args_is_help=True)
+share_dashboard_app = typer.Typer(name="dashboard", help="Share dashboards.", no_args_is_help=True)
+share_source_app = typer.Typer(name="source", help="Share data sources.", no_args_is_help=True)
+
+sharing_app.add_typer(share_project_app, name="project")
+sharing_app.add_typer(share_dashboard_app, name="dashboard")
+sharing_app.add_typer(share_source_app, name="source")
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -44,21 +52,21 @@ def _resolve_arg(value: Optional[str], name: str, prompt: str, usage: str) -> st
 # ── Project sharing ──────────────────────────────────────────────────────────
 
 
-@sharing_app.command("share-project")
-def share_project(
+@share_project_app.command("add")
+def add_project_share(
     ctx: typer.Context,
     project_id: Optional[str] = typer.Argument(None, help="Project ID."),
     user_id: Optional[str] = typer.Option(None, "--user-id", help="User ID to share with."),
-    permission: str = typer.Option("view", "--permission", "-p", help="Permission: view or edit."),
+    permission: str = typer.Option("view", "--permission", help="Permission: view or edit."),
 ) -> None:
     """Share a project with a user."""
     project_id = _resolve_arg(
         project_id, "PROJECT_ID", "Project ID: ",
-        "querri share share-project PROJECT_ID --user-id USER_ID",
+        "querri share project add PROJECT_ID --user-id USER_ID",
     )
     user_id = _resolve_arg(
         user_id, "USER_ID", "User ID: ",
-        "querri share share-project PROJECT_ID --user-id USER_ID",
+        "querri share project add PROJECT_ID --user-id USER_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -73,20 +81,20 @@ def share_project(
         print_success(f"Shared project {project_id} with user {user_id} ({permission})")
 
 
-@sharing_app.command("revoke-project")
-def revoke_project(
+@share_project_app.command("remove")
+def remove_project_share(
     ctx: typer.Context,
     project_id: Optional[str] = typer.Argument(None, help="Project ID."),
-    user_id: Optional[str] = typer.Argument(None, help="User ID to revoke."),
+    user_id: Optional[str] = typer.Argument(None, help="User ID to remove."),
 ) -> None:
     """Revoke a user's access to a project."""
     project_id = _resolve_arg(
         project_id, "PROJECT_ID", "Project ID: ",
-        "querri share revoke-project PROJECT_ID USER_ID",
+        "querri share project remove PROJECT_ID USER_ID",
     )
     user_id = _resolve_arg(
         user_id, "USER_ID", "User ID: ",
-        "querri share revoke-project PROJECT_ID USER_ID",
+        "querri share project remove PROJECT_ID USER_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -101,7 +109,7 @@ def revoke_project(
         print_success(f"Revoked access to project {project_id} for user {user_id}")
 
 
-@sharing_app.command("list-project")
+@share_project_app.command("list")
 def list_project_shares(
     ctx: typer.Context,
     project_id: Optional[str] = typer.Argument(None, help="Project ID."),
@@ -109,7 +117,7 @@ def list_project_shares(
     """List users who have access to a project."""
     project_id = _resolve_arg(
         project_id, "PROJECT_ID", "Project ID: ",
-        "querri share list-project PROJECT_ID",
+        "querri share project list PROJECT_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -131,21 +139,21 @@ def list_project_shares(
 # ── Dashboard sharing ────────────────────────────────────────────────────────
 
 
-@sharing_app.command("share-dashboard")
-def share_dashboard(
+@share_dashboard_app.command("add")
+def add_dashboard_share(
     ctx: typer.Context,
     dashboard_id: Optional[str] = typer.Argument(None, help="Dashboard ID."),
     user_id: Optional[str] = typer.Option(None, "--user-id", help="User ID to share with."),
-    permission: str = typer.Option("view", "--permission", "-p", help="Permission: view or edit."),
+    permission: str = typer.Option("view", "--permission", help="Permission: view or edit."),
 ) -> None:
     """Share a dashboard with a user."""
     dashboard_id = _resolve_arg(
         dashboard_id, "DASHBOARD_ID", "Dashboard ID: ",
-        "querri share share-dashboard DASHBOARD_ID --user-id USER_ID",
+        "querri share dashboard add DASHBOARD_ID --user-id USER_ID",
     )
     user_id = _resolve_arg(
         user_id, "USER_ID", "User ID: ",
-        "querri share share-dashboard DASHBOARD_ID --user-id USER_ID",
+        "querri share dashboard add DASHBOARD_ID --user-id USER_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -160,20 +168,20 @@ def share_dashboard(
         print_success(f"Shared dashboard {dashboard_id} with user {user_id} ({permission})")
 
 
-@sharing_app.command("revoke-dashboard")
-def revoke_dashboard(
+@share_dashboard_app.command("remove")
+def remove_dashboard_share(
     ctx: typer.Context,
     dashboard_id: Optional[str] = typer.Argument(None, help="Dashboard ID."),
-    user_id: Optional[str] = typer.Argument(None, help="User ID to revoke."),
+    user_id: Optional[str] = typer.Argument(None, help="User ID to remove."),
 ) -> None:
     """Revoke a user's access to a dashboard."""
     dashboard_id = _resolve_arg(
         dashboard_id, "DASHBOARD_ID", "Dashboard ID: ",
-        "querri share revoke-dashboard DASHBOARD_ID USER_ID",
+        "querri share dashboard remove DASHBOARD_ID USER_ID",
     )
     user_id = _resolve_arg(
         user_id, "USER_ID", "User ID: ",
-        "querri share revoke-dashboard DASHBOARD_ID USER_ID",
+        "querri share dashboard remove DASHBOARD_ID USER_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -188,7 +196,7 @@ def revoke_dashboard(
         print_success(f"Revoked access to dashboard {dashboard_id} for user {user_id}")
 
 
-@sharing_app.command("list-dashboard")
+@share_dashboard_app.command("list")
 def list_dashboard_shares(
     ctx: typer.Context,
     dashboard_id: Optional[str] = typer.Argument(None, help="Dashboard ID."),
@@ -196,7 +204,7 @@ def list_dashboard_shares(
     """List users who have access to a dashboard."""
     dashboard_id = _resolve_arg(
         dashboard_id, "DASHBOARD_ID", "Dashboard ID: ",
-        "querri share list-dashboard DASHBOARD_ID",
+        "querri share dashboard list DASHBOARD_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -216,26 +224,25 @@ def list_dashboard_shares(
 
 
 # ── Source sharing ────────────────────────────────────────────────────────────
-# Note: Source sharing SDK methods (share_source, revoke_source_share,
-# list_source_shares, org_share_source) are not yet in the SDK.
+# Note: Source sharing SDK methods are not yet in the SDK.
 # These commands call the HTTP client directly.
 
 
-@sharing_app.command("share-source")
-def share_source(
+@share_source_app.command("add")
+def add_source_share(
     ctx: typer.Context,
     source_id: Optional[str] = typer.Argument(None, help="Source ID."),
     user_id: Optional[str] = typer.Option(None, "--user-id", help="User ID to share with."),
-    permission: str = typer.Option("view", "--permission", "-p", help="Permission: view or edit."),
+    permission: str = typer.Option("view", "--permission", help="Permission: view or edit."),
 ) -> None:
     """Share a data source with a user."""
     source_id = _resolve_arg(
         source_id, "SOURCE_ID", "Source ID: ",
-        "querri share share-source SOURCE_ID --user-id USER_ID",
+        "querri share source add SOURCE_ID --user-id USER_ID",
     )
     user_id = _resolve_arg(
         user_id, "USER_ID", "User ID: ",
-        "querri share share-source SOURCE_ID --user-id USER_ID",
+        "querri share source add SOURCE_ID --user-id USER_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -254,20 +261,20 @@ def share_source(
         print_success(f"Shared source {source_id} with user {user_id} ({permission})")
 
 
-@sharing_app.command("revoke-source")
-def revoke_source(
+@share_source_app.command("remove")
+def remove_source_share(
     ctx: typer.Context,
     source_id: Optional[str] = typer.Argument(None, help="Source ID."),
-    user_id: Optional[str] = typer.Argument(None, help="User ID to revoke."),
+    user_id: Optional[str] = typer.Argument(None, help="User ID to remove."),
 ) -> None:
     """Revoke a user's access to a data source."""
     source_id = _resolve_arg(
         source_id, "SOURCE_ID", "Source ID: ",
-        "querri share revoke-source SOURCE_ID USER_ID",
+        "querri share source remove SOURCE_ID USER_ID",
     )
     user_id = _resolve_arg(
         user_id, "USER_ID", "User ID: ",
-        "querri share revoke-source SOURCE_ID USER_ID",
+        "querri share source remove SOURCE_ID USER_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -282,7 +289,7 @@ def revoke_source(
         print_success(f"Revoked access to source {source_id} for user {user_id}")
 
 
-@sharing_app.command("list-source")
+@share_source_app.command("list")
 def list_source_shares(
     ctx: typer.Context,
     source_id: Optional[str] = typer.Argument(None, help="Source ID."),
@@ -290,7 +297,7 @@ def list_source_shares(
     """List users who have access to a data source."""
     source_id = _resolve_arg(
         source_id, "SOURCE_ID", "Source ID: ",
-        "querri share list-source SOURCE_ID",
+        "querri share source list SOURCE_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -311,16 +318,16 @@ def list_source_shares(
         )
 
 
-@sharing_app.command("org-share-source")
-def org_share_source(
+@share_source_app.command("org")
+def org_source_share(
     ctx: typer.Context,
     source_id: Optional[str] = typer.Argument(None, help="Source ID."),
-    permission: str = typer.Option("view", "--permission", "-p", help="Permission: view or edit."),
+    permission: str = typer.Option("view", "--permission", help="Permission: view or edit."),
 ) -> None:
     """Share a data source with the entire organization."""
     source_id = _resolve_arg(
         source_id, "SOURCE_ID", "Source ID: ",
-        "querri share org-share-source SOURCE_ID",
+        "querri share source org SOURCE_ID",
     )
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)

@@ -95,8 +95,8 @@ def get_user(
         )
 
 
-@users_app.command("create")
-def create_user(
+@users_app.command("new")
+def new_user(
     ctx: typer.Context,
     email: Optional[str] = typer.Option(None, "--email", "-e", help="User email."),
     role: str = typer.Option("member", "--role", "-r", help="Role (member, admin)."),
@@ -113,7 +113,7 @@ def create_user(
                 print_error("User email is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required option --email. Usage: querri user create --email EMAIL [--role ROLE]")
+            print_error("Missing required option --email. Usage: querri user new --email EMAIL [--role ROLE]")
             raise typer.Exit(code=1)
     client = get_client(ctx)
     try:

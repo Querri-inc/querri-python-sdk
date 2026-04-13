@@ -94,8 +94,8 @@ def get_dashboard(
         )
 
 
-@dashboards_app.command("create")
-def create_dashboard(
+@dashboards_app.command("new")
+def new_dashboard(
     ctx: typer.Context,
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Dashboard name."),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="Description."),
@@ -108,7 +108,7 @@ def create_dashboard(
                 print_error("Dashboard name is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required option --name. Usage: querri dashboard create --name NAME [--description DESCRIPTION]")
+            print_error("Missing required option --name. Usage: querri dashboard new --name NAME [--description DESCRIPTION]")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)

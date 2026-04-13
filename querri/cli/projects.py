@@ -37,6 +37,10 @@ projects_app = typer.Typer(
     rich_markup_mode="rich",
 )
 
+# Register project chat subgroup (querri project chat -m "...")
+from querri.cli.chat import project_chat_app  # noqa: E402
+projects_app.add_typer(project_chat_app, name="chat", rich_help_panel="Chat")
+
 
 # ---------------------------------------------------------------------------
 # querri project new

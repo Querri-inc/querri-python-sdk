@@ -63,7 +63,7 @@ def step_data(
     ctx: typer.Context,
     project_id: Optional[str] = typer.Argument(default=None, help="Project ID."),
     step_id: Optional[str] = typer.Argument(default=None, help="Step ID."),
-    page: int = typer.Option(1, "--page", "-p", help="Page number."),
+    page: int = typer.Option(1, "--page", help="Page number."),
     page_size: int = typer.Option(100, "--page-size", help="Rows per page."),
 ) -> None:
     """View data output from a project step."""

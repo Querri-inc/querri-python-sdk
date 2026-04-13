@@ -16,8 +16,10 @@ The CLI is self-documenting — run `querri <command> --help` for full flag deta
 ```bash
 querri --json project list          # correct
 querri project list --json          # WRONG — will error
-querri --no-interactive chat ...    # correct
+querri --no-interactive project chat ...    # correct
 ```
+
+`-p` is **reserved globally** for `--project`. No subcommand uses `-p` as a short alias.
 
 ## Auth
 
@@ -44,7 +46,7 @@ querri --json project new "My Analysis"
 querri --json project add-source <file_id>
 
 # Ask a question
-querri --json chat -p "What are the top 5 products by revenue?"
+querri --json project chat -m "What are the top 5 products by revenue?"
 ```
 
 ### 2. Non-interactive / scripted use
@@ -55,24 +57,15 @@ Always pass `--no-interactive` to prevent prompts and `--json` for parseable out
 FILE_ID=$(querri --json --no-interactive file upload data.csv | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 PROJ_ID=$(querri --json --no-interactive project new "Automated Analysis" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 querri --json --no-interactive --project "$PROJ_ID" project add-source "$FILE_ID"
-querri --json --no-interactive --project "$PROJ_ID" chat -p "Summarize the data"
+querri --json --no-interactive --project "$PROJ_ID" project chat -m "Summarize the data"
 ```
 
 ### 3. Work with an existing project
 
 ```bash
-querri --json project list                         # list all projects
-querri project select "My Analysis"                # fuzzy-match by name, set active
-querri --json --project <id> chat -p "..."         # use specific project without selecting
-```
-
-## The `-p` Flag Collision
-
-`-p` means `--project` at the global level, but `--prompt` inside `chat`. When using both in the same command, use the full form for one of them:
-
-```bash
-# Correct: global --project (long form) + chat -p (short form for prompt)
-querri --json --no-interactive --project "$PROJ_ID" chat -p "my question"
+querri --json project list                              # list all projects
+querri project select "My Analysis"                     # fuzzy-match by name, set active
+querri --json --project <id> project chat -m "..."      # use specific project without selecting
 ```
 
 ## Projects
@@ -109,16 +102,31 @@ Supported formats: CSV, Excel (.xlsx/.xls), JSON, Parquet, and others.
 
 ## Chat
 
+`querri project chat` is the convenience command for sending messages to the AI in a project. `querri chat` is a management command for listing and inspecting chat sessions.
+
+### Sending messages
+
 ```bash
-querri chat -p "What is the average revenue by region?"   # send prompt
-querri chat -p "..." --new                                  # force new chat session
-querri chat -p "..." --model fast                          # model selection
-querri chat -p "..." --reasoning                           # show reasoning traces
-querri chat show                                            # show full conversation
-querri chat cancel                                          # cancel active stream
+querri project chat -m "What is the average revenue by region?"   # send message
+querri project chat -m "..." --new                                  # force new chat session
+querri project chat -m "..." --model fast                          # model selection
+querri project chat -m "..." --reasoning                           # show reasoning traces
+querri project chat show                                            # show conversation history
+querri project chat cancel                                          # cancel active stream
 ```
 
 Chat responses include `message_id`, `text` (the AI response), `tool_calls` (analysis steps run), `files` (any generated files), and `reasoning`.
+
+### Managing chat sessions
+
+```bash
+querri chat list                                           # list all chats
+querri chat get <chat_id>                                  # chat detail
+querri chat new                                            # create a new chat session
+querri chat stream <chat_id> --message "..."               # stream to a specific chat
+querri chat cancel <chat_id>                               # cancel a specific chat
+querri chat delete <chat_id>                               # delete
+```
 
 ## Views
 
@@ -129,8 +137,8 @@ A view is a named SQL query over sources that can be materialized into a table. 
 **AI agent flow** — describe what you want; the agent writes the SQL and auto-generates a name and description:
 
 ```bash
-querri view new -p "monthly revenue by product line"
-querri view new -n "Revenue" -p "revenue by region"    # AI + custom name
+querri view new --prompt "monthly revenue by product line"
+querri view new -n "Revenue" --prompt "revenue by region"    # AI + custom name
 ```
 
 **Direct SQL flow** — provide the SQL yourself; the view is created immediately:
@@ -186,7 +194,7 @@ querri source connectors                          # list available connector typ
 ```bash
 querri dashboard list
 querri dashboard get <dashboard_id>
-querri dashboard create --name "Name" --project <id>
+querri dashboard new --name "Name" --project <id>
 querri dashboard update <id> --name "..."
 querri dashboard refresh <id>                     # trigger refresh
 querri dashboard refresh-status <id>
@@ -196,15 +204,21 @@ querri dashboard delete <id>
 ## Sharing & Access
 
 ```bash
-# Share with a specific user
-querri share share-project <project_id> <user_id> --role viewer  # viewer|editor|owner
-querri share revoke-project <project_id> <user_id>
-querri share list-project <project_id>
+# Projects
+querri share project add <project_id> --user-id <user_id> [--permission view]
+querri share project remove <project_id> <user_id>
+querri share project list <project_id>
 
-# Same pattern for dashboards and sources
-querri share share-dashboard <dashboard_id> <user_id> --role viewer
-querri share share-source <source_id> <user_id>
-querri share org-share-source <source_id>         # share with entire org
+# Dashboards
+querri share dashboard add <dashboard_id> --user-id <user_id> [--permission view]
+querri share dashboard remove <dashboard_id> <user_id>
+querri share dashboard list <dashboard_id>
+
+# Sources
+querri share source add <source_id> --user-id <user_id> [--permission view]
+querri share source remove <source_id> <user_id>
+querri share source list <source_id>
+querri share source org <source_id> [--permission view]   # share with entire org
 ```
 
 ## API Keys
@@ -212,7 +226,7 @@ querri share org-share-source <source_id>         # share with entire org
 ```bash
 querri key list
 querri key get <key_id>
-querri key create --name "My Key" --scopes "admin:projects:read,admin:projects:write"
+querri key new --name "My Key" --scopes "admin:projects:read,admin:projects:write"
 querri key delete <key_id>
 ```
 
@@ -227,7 +241,7 @@ Scopes follow `admin:<resource>:<action>` pattern. Common scopes:
 ```bash
 querri user list
 querri user get <user_id>
-querri user create --email "user@example.com" --first-name "..." --last-name "..."
+querri user new --email "user@example.com" --first-name "..." --last-name "..."
 querri user delete <user_id>
 ```
 
@@ -236,7 +250,7 @@ querri user delete <user_id>
 ```bash
 querri policy list
 querri policy get <policy_id>
-querri policy create --name "Region Filter" --source <source_id> --condition "region = '{user.email}'"
+querri policy new --name "Region Filter" --source <source_id> --condition "region = '{user.email}'"
 querri policy update <id> --condition "..."
 querri policy assign <policy_id> <user_id>
 querri policy remove <policy_id> <user_id>
@@ -245,14 +259,14 @@ querri policy columns <source_id>                  # available columns for polic
 querri policy delete <id>
 ```
 
-## Embedded Analytics
+## Embedded Analytics (Sessions)
 
 ```bash
-querri embed create-session --user-id <id> --project <project_id>
-querri embed get-session --user-id <id>            # get-or-create convenience
-querri embed refresh-session <session_id>
-querri embed list-sessions
-querri embed revoke-session <session_id>
+querri session new --user-id <user_id> [--origin <url>] [--ttl 3600]
+querri session list
+querri session get --user <user_id>                # get-or-create convenience
+querri session refresh --token <token>
+querri session revoke --session-id <session_id>
 ```
 
 ## Administration

@@ -95,8 +95,8 @@ def get_policy(
         )
 
 
-@policies_app.command("create")
-def create_policy(
+@policies_app.command("new")
+def new_policy(
     ctx: typer.Context,
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Policy name."),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="Description."),
@@ -111,7 +111,7 @@ def create_policy(
                 print_error("Policy name is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required option --name. Usage: querri policy create --name NAME")
+            print_error("Missing required option --name. Usage: querri policy new --name NAME")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)

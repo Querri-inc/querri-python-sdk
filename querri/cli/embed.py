@@ -1,4 +1,4 @@
-"""querri embed — manage embedded analytics sessions."""
+"""querri session — manage embedded analytics sessions."""
 
 from __future__ import annotations
 
@@ -20,14 +20,14 @@ from querri.cli._output import (
 )
 
 embed_app = typer.Typer(
-    name="embed",
+    name="session",
     help="Manage embedded analytics sessions.",
     no_args_is_help=True,
 )
 
 
-@embed_app.command("create-session")
-def create_session(
+@embed_app.command("new")
+def new_session(
     ctx: typer.Context,
     user_id: Optional[str] = typer.Option(None, "--user-id", help="User ID for the session."),
     origin: Optional[str] = typer.Option(None, "--origin", help="Allowed origin URL."),
@@ -41,7 +41,7 @@ def create_session(
                 print_error("User ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument --user-id. Usage: querri embed create-session --user-id USER_ID")
+            print_error("Missing required argument --user-id. Usage: querri session new --user-id USER_ID")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -55,14 +55,14 @@ def create_session(
     elif obj.get("quiet"):
         print(session.session_token)
     else:
-        print_success("Created embed session")
+        print_success("Created session")
         print_detail(
             session,
             [("session_token", "Token"), ("expires_in", "Expires In (s)"), ("user_id", "User ID")],
         )
 
 
-@embed_app.command("refresh-session")
+@embed_app.command("refresh")
 def refresh_session(
     ctx: typer.Context,
     session_token: Optional[str] = typer.Option(None, "--token", help="Session token to refresh."),
@@ -75,7 +75,7 @@ def refresh_session(
                 print_error("Session token is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument --token. Usage: querri embed refresh-session --token TOKEN")
+            print_error("Missing required argument --token. Usage: querri session refresh --token TOKEN")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -89,17 +89,17 @@ def refresh_session(
     elif obj.get("quiet"):
         print(session.session_token)
     else:
-        print_success("Refreshed embed session")
+        print_success("Refreshed session")
         print_detail(
             session,
             [("session_token", "Token"), ("expires_in", "Expires In (s)")],
         )
 
 
-@embed_app.command("list-sessions")
+@embed_app.command("list")
 def list_sessions(
     ctx: typer.Context,
-    limit: int = typer.Option(100, "--limit", "-n", help="Max results."),
+    limit: int = typer.Option(100, "--limit", "-l", help="Max results."),
 ) -> None:
     """List active embed sessions."""
     obj = ctx.ensure_object(dict)
@@ -125,13 +125,13 @@ def list_sessions(
         )
 
 
-@embed_app.command("revoke-session")
+@embed_app.command("revoke")
 def revoke_session(
     ctx: typer.Context,
     session_id: Optional[str] = typer.Option(None, "--session-id", help="Session ID."),
     session_token: Optional[str] = typer.Option(None, "--token", help="Session token."),
 ) -> None:
-    """Revoke an embed session (by ID or token)."""
+    """Revoke a session (by ID or token)."""
     obj = ctx.ensure_object(dict)
 
     if not session_id and not session_token:
@@ -150,7 +150,7 @@ def revoke_session(
         print_success(f"Revoked session {session_id or session_token}")
 
 
-@embed_app.command("get-session")
+@embed_app.command("get")
 def get_session(
     ctx: typer.Context,
     user: Optional[str] = typer.Option(None, "--user", help="User ID or JSON user object."),
@@ -166,7 +166,7 @@ def get_session(
                 print_error("User is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument --user. Usage: querri embed get-session --user USER")
+            print_error("Missing required argument --user. Usage: querri session get --user USER")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)

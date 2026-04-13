@@ -173,8 +173,8 @@ def get_key(
         )
 
 
-@keys_app.command("create")
-def create_key(
+@keys_app.command("new")
+def new_key(
     ctx: typer.Context,
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Key name."),
     scopes: Optional[str] = typer.Option(None, "--scopes", "-s", help="Comma-separated scopes."),
@@ -195,7 +195,7 @@ def create_key(
                 print_error("Key name is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required option --name. Usage: querri key create --name NAME --scopes SCOPES [options]")
+            print_error("Missing required option --name. Usage: querri key new --name NAME --scopes SCOPES [options]")
             raise typer.Exit(code=1)
     if not scopes:
         if sys.stdin.isatty():

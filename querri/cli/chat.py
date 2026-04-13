@@ -78,33 +78,33 @@ def _debug(log: object | None, msg: str) -> None:
     log.flush()  # type: ignore[union-attr]
 
 
-chat_app = typer.Typer(
+project_chat_app = typer.Typer(
     name="chat",
-    help="Send a prompt or manage chats on the active project.",
+    help="Chat with the active project — send messages and manage conversation.",
     invoke_without_command=True,
     rich_markup_mode="rich",
 )
 
 
-@chat_app.callback(invoke_without_command=True)
+@project_chat_app.callback(invoke_without_command=True)
 def chat_command(
     ctx: typer.Context,
-    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="Message to send."),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model selection."),
+    prompt: Optional[str] = typer.Option(None, "--message", "-m", help="Message to send."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model selection."),
     new: bool = typer.Option(False, "--new", help="Force a new chat session."),
-    reasoning: bool = typer.Option(False, "--reasoning", "-r", help="Show reasoning traces."),
+    reasoning: bool = typer.Option(False, "--reasoning", help="Show reasoning traces."),
     experimental_v2: bool = typer.Option(False, "--experimental-v2", "--v2", help="Use experimental v2 agent (faster, direct SQL execution)."),
     debug: bool = typer.Option(False, "--debug", help="Log all stream events to ~/.querri/debug.log"),
 ) -> None:
-    """Send a prompt to the active project's chat.
+    """Send a message to the active project's chat.
 
     Auto-creates a chat if none is active. Use --new to start a fresh
     conversation.
 
     Examples:
-        querri chat -p "summarize the data"
-        querri chat --prompt "show me Q4 revenue" --model gpt-4o
-        querri chat -p "start over" --new
+        querri project chat -m "summarize the data"
+        querri project chat --message "show me Q4 revenue" --model gpt-4o
+        querri project chat -m "start over" --new
     """
     if ctx.invoked_subcommand is not None:
         return
@@ -599,7 +599,7 @@ def _render_accumulated_steps(
 # ---------------------------------------------------------------------------
 
 
-@chat_app.command("cancel")
+@project_chat_app.command("cancel")
 def chat_cancel(ctx: typer.Context) -> None:
     """Cancel the active chat stream on the current project.
 
@@ -640,7 +640,7 @@ def chat_cancel(ctx: typer.Context) -> None:
 # ---------------------------------------------------------------------------
 
 
-@chat_app.command("show")
+@project_chat_app.command("show")
 def chat_show(
     ctx: typer.Context,
     top: Optional[int] = typer.Option(None, "--top", help="Show only the first N messages."),

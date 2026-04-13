@@ -21,7 +21,7 @@ from querri.cli._output import (
 )
 
 chats_app = typer.Typer(
-    name="chats",
+    name="chat",
     help="Manage project chats and stream AI responses.",
     no_args_is_help=True,
 )
@@ -52,7 +52,7 @@ def _resolve_user_id(
     is_json = obj.get("json", False)
     msg = (
         "User ID required. Set QUERRI_USER_ID env var or pass --user-id.\n"
-        "Example: querri chats stream PROJECT CHAT --prompt '...' --user-id USER"
+        "Example: querri chat stream PROJECT CHAT --message '...' --user-id USER"
     )
     if is_json:
         from querri.cli._output import print_json_error
@@ -76,7 +76,7 @@ def list_chats(
                 print_error("Project ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument PROJECT_ID. Usage: querri chats list PROJECT_ID")
+            print_error("Missing required argument PROJECT_ID. Usage: querri chat list PROJECT_ID")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
@@ -114,7 +114,7 @@ def get_chat(
                 print_error("Project ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument PROJECT_ID. Usage: querri chats get PROJECT_ID CHAT_ID")
+            print_error("Missing required argument PROJECT_ID. Usage: querri chat get PROJECT_ID CHAT_ID")
             raise typer.Exit(code=1)
     if not chat_id:
         if sys.stdin.isatty():
@@ -123,7 +123,7 @@ def get_chat(
                 print_error("Chat ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument CHAT_ID. Usage: querri chats get PROJECT_ID CHAT_ID")
+            print_error("Missing required argument CHAT_ID. Usage: querri chat get PROJECT_ID CHAT_ID")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
@@ -147,8 +147,8 @@ def get_chat(
         ])
 
 
-@chats_app.command("create")
-def create_chat(
+@chats_app.command("new")
+def new_chat(
     ctx: typer.Context,
     project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
     name: Optional[str] = typer.Option(None, "--name", "-n", help="Chat display name."),
@@ -161,7 +161,7 @@ def create_chat(
                 print_error("Project ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument PROJECT_ID. Usage: querri chats create PROJECT_ID [--name NAME]")
+            print_error("Missing required argument PROJECT_ID. Usage: querri chat new PROJECT_ID [--name NAME]")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
@@ -177,7 +177,7 @@ def create_chat(
     elif obj.get("quiet"):
         print_id(chat.id)
     else:
-        print_success(f"Chat created: {chat.id}")
+        print_success(f"Created chat: {chat.id}")
 
 
 @chats_app.command("delete")
@@ -194,7 +194,7 @@ def delete_chat(
                 print_error("Project ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument PROJECT_ID. Usage: querri chats delete PROJECT_ID CHAT_ID")
+            print_error("Missing required argument PROJECT_ID. Usage: querri chat delete PROJECT_ID CHAT_ID")
             raise typer.Exit(code=1)
     if not chat_id:
         if sys.stdin.isatty():
@@ -203,7 +203,7 @@ def delete_chat(
                 print_error("Chat ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument CHAT_ID. Usage: querri chats delete PROJECT_ID CHAT_ID")
+            print_error("Missing required argument CHAT_ID. Usage: querri chat delete PROJECT_ID CHAT_ID")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
@@ -234,7 +234,7 @@ def cancel_chat(
                 print_error("Project ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument PROJECT_ID. Usage: querri chats cancel PROJECT_ID CHAT_ID")
+            print_error("Missing required argument PROJECT_ID. Usage: querri chat cancel PROJECT_ID CHAT_ID")
             raise typer.Exit(code=1)
     if not chat_id:
         if sys.stdin.isatty():
@@ -243,7 +243,7 @@ def cancel_chat(
                 print_error("Chat ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument CHAT_ID. Usage: querri chats cancel PROJECT_ID CHAT_ID")
+            print_error("Missing required argument CHAT_ID. Usage: querri chat cancel PROJECT_ID CHAT_ID")
             raise typer.Exit(code=1)
     obj = ctx.ensure_object(dict)
     is_json = obj.get("json", False)
@@ -265,13 +265,13 @@ def stream_chat(
     ctx: typer.Context,
     project_id: Optional[str] = typer.Argument(None, help="Project UUID."),
     chat_id: Optional[str] = typer.Argument(None, help="Chat UUID."),
-    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="User message to send."),
+    message: Optional[str] = typer.Option(None, "--message", "-m", help="Message to send."),
     user_id: Optional[str] = typer.Option(
         None, "--user-id", "-u",
         help="User ID (or set QUERRI_USER_ID env var).",
     ),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Model selection."),
-    reasoning: bool = typer.Option(False, "--reasoning", "-r", help="Show reasoning traces."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model selection."),
+    reasoning: bool = typer.Option(False, "--reasoning", help="Show reasoning traces."),
 ) -> None:
     """Send a message and stream the AI response.
 
@@ -286,7 +286,7 @@ def stream_chat(
                 print_error("Project ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument PROJECT_ID. Usage: querri chats stream PROJECT_ID CHAT_ID --prompt PROMPT --user-id USER_ID")
+            print_error("Missing required argument PROJECT_ID. Usage: querri chat stream PROJECT_ID CHAT_ID --message MESSAGE --user-id USER_ID")
             raise typer.Exit(code=1)
     if not chat_id:
         if sys.stdin.isatty():
@@ -295,16 +295,17 @@ def stream_chat(
                 print_error("Chat ID is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required argument CHAT_ID. Usage: querri chats stream PROJECT_ID CHAT_ID --prompt PROMPT --user-id USER_ID")
+            print_error("Missing required argument CHAT_ID. Usage: querri chat stream PROJECT_ID CHAT_ID --message MESSAGE --user-id USER_ID")
             raise typer.Exit(code=1)
+    prompt = message
     if not prompt:
         if sys.stdin.isatty():
-            prompt = input("Prompt: ").strip()
+            prompt = input("Message: ").strip()
             if not prompt:
-                print_error("Prompt is required.")
+                print_error("Message is required.")
                 raise typer.Exit(code=1)
         else:
-            print_error("Missing required option --prompt. Usage: querri chats stream PROJECT_ID CHAT_ID --prompt PROMPT --user-id USER_ID")
+            print_error("Missing required option --message. Usage: querri chat stream PROJECT_ID CHAT_ID --message MESSAGE --user-id USER_ID")
             raise typer.Exit(code=1)
 
     obj = ctx.ensure_object(dict)

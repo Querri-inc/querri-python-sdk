@@ -26,10 +26,10 @@ main_app = typer.Typer(
         "[bold #f15a24]Querri CLI[/bold #f15a24] — command-line interface for the "
         "[#f15a24]Querri[/#f15a24] data analysis platform.\n\n"
         "Get started:\n"
-        "  [#f15a24]querri auth login[/#f15a24]              Authenticate via browser\n"
-        "  [#f15a24]querri project new[/#f15a24]             Create a new project\n"
-        "  [#f15a24]querri file upload data.csv[/#f15a24]    Upload a data file\n"
-        "  [#f15a24]querri chat \"analyze this\"[/#f15a24]     Chat with your data"
+        "  [#f15a24]querri auth login[/#f15a24]                    Authenticate via browser\n"
+        "  [#f15a24]querri project new[/#f15a24]                   Create a new project\n"
+        "  [#f15a24]querri file upload data.csv[/#f15a24]          Upload a data file\n"
+        "  [#f15a24]querri project chat -m \"analyze this\"[/#f15a24]  Chat with your data"
     ),
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -170,7 +170,6 @@ main_app.add_typer(whoami_app, name="whoami", rich_help_panel="[#f15a24]Getting 
 
 # ── Projects & Data ─────────────────────────────────────────────────────
 from querri.cli.projects import projects_app
-from querri.cli.chat import chat_app
 from querri.cli.steps import steps_app
 from querri.cli.chats import chats_app
 from querri.cli.files import files_app
@@ -178,9 +177,8 @@ from querri.cli.sources import sources_app
 from querri.cli.views import view_app
 
 main_app.add_typer(projects_app, name="project", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
-main_app.add_typer(chat_app, name="chat", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
+main_app.add_typer(chats_app, name="chat", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 main_app.add_typer(steps_app, name="step", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
-main_app.add_typer(chats_app, name="chats", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]", hidden=True)
 main_app.add_typer(files_app, name="file", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 main_app.add_typer(sources_app, name="source", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
 main_app.add_typer(view_app, name="view", rich_help_panel="[#f15a24]Projects & Data[/#f15a24]")
@@ -204,6 +202,6 @@ from querri.cli.embed import embed_app
 from querri.cli.usage import usage_app
 from querri.cli.audit import audit_app
 
-main_app.add_typer(embed_app, name="embed", rich_help_panel="[#f15a24]Advanced[/#f15a24]")
+main_app.add_typer(embed_app, name="session", rich_help_panel="[#f15a24]Advanced[/#f15a24]")
 main_app.add_typer(usage_app, name="usage", rich_help_panel="[#f15a24]Advanced[/#f15a24]")
 main_app.add_typer(audit_app, name="audit", rich_help_panel="[#f15a24]Advanced[/#f15a24]")
