@@ -26,41 +26,116 @@ view_app = typer.Typer(
 )
 
 
-@view_app.command("create")
-def create_view(
+@view_app.command("new")
+def new_view(
     ctx: typer.Context,
     name: Optional[str] = typer.Option(None, "--name", "-n", help="View name."),
     sql: Optional[str] = typer.Option(None, "--sql", "-s", help="SQL definition."),
     description: Optional[str] = typer.Option(None, "--description", "-d", help="View description."),
+    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="Describe the view with AI (optional)."),
 ) -> None:
-    """Create a new SQL-defined view."""
-    if name is None:
-        if sys.stdin.isatty():
-            name = input("View name: ").strip()
-        else:
-            print_error("Missing required option --name. Usage: querri view create --name <NAME> --sql <SQL>")
-            raise typer.Exit(code=1)
-    if sql is None:
-        if sys.stdin.isatty():
-            sql = input("SQL definition: ").strip()
-        else:
-            print_error("Missing required option --sql. Usage: querri view create --name <NAME> --sql <SQL>")
-            raise typer.Exit(code=1)
+    """Create a new view — directly with SQL or via the AI authoring agent.
+
+    If --prompt is given (or entered interactively), the AI agent writes the
+    SQL and auto-generates a name and description from the conversation.
+
+    If --sql is given without --prompt, the view is created directly.
+
+    Running with no arguments drops into interactive mode — all fields are
+    optional. Provide at least a prompt or SQL definition.
+
+    Examples:
+        querri view new                                          # interactive
+        querri view new -p "monthly revenue by product line"   # AI agent
+        querri view new --name "Orders" --sql "SELECT * FROM orders"  # direct
+        querri view new -n "Revenue" -p "revenue by region"    # AI + custom name
+    """
+    is_interactive = sys.stdin.isatty()
+
+    # Interactive: collect all inputs inline when no flags were passed
+    if is_interactive and name is None and sql is None and description is None and prompt is None:
+        name = input("Name (optional): ").strip() or None
+        sql = input("SQL definition (optional): ").strip() or None
+        description = input("Description (optional): ").strip() or None
+        prompt = input("AI prompt (optional, press Enter to skip): ").strip() or None
+
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
 
-    try:
-        result = client.views.create(name=name, sql_definition=sql, description=description)
-    except Exception as exc:
-        raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
+    if prompt:
+        # ── AI agent flow ──────────────────────────────────────────────────────
+        # Create a draft view, optionally seeding name/sql/description
+        try:
+            result = client.views.create(
+                name=name or None,
+                sql_definition=sql or None,
+                description=description or None,
+            )
+        except Exception as exc:
+            raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
 
-    if obj.get("json"):
-        print_json(result)
-    elif obj.get("quiet"):
-        print_id(result.get("id", result.get("uuid", "")))
+        view_uuid = result.get("id", result.get("uuid", ""))
+        print(f"Created draft view {view_uuid}", file=sys.stderr, flush=True)
+
+        # Run the authoring agent
+        try:
+            stream = client.views.chat(view_uuid, message=prompt)
+            _print_sse_stream(stream)
+        except Exception as exc:
+            print_error(f"Agent error: {exc}")
+            print(
+                f"\nView UUID: {view_uuid} (draft — use 'querri view chat' to continue)",
+                file=sys.stderr,
+            )
+            raise typer.Exit(code=1)
+
+        # Auto-generate name + description unless user already supplied a name
+        generated_name = name or ""
+        generated_desc = description or ""
+        if not name:
+            try:
+                meta = client.views.generate_metadata(view_uuid)
+                generated_name = meta.get("name", "")
+                generated_desc = meta.get("description", "")
+                if generated_name:
+                    print(f"\n  Name: {generated_name}", file=sys.stderr, flush=True)
+                if generated_desc:
+                    print(f"  Description: {generated_desc}", file=sys.stderr, flush=True)
+            except Exception as exc:
+                print(f"\n  (metadata generation failed: {exc})", file=sys.stderr)
+
+        if obj.get("json"):
+            print_json({"id": view_uuid, "name": generated_name, "description": generated_desc})
+        elif obj.get("quiet"):
+            print_id(view_uuid)
+        else:
+            print(f"\n  View: {view_uuid}", file=sys.stderr)
+
+    elif sql:
+        # ── Direct create flow ────────────────────────────────────────────────
+        try:
+            result = client.views.create(name=name, sql_definition=sql, description=description)
+        except Exception as exc:
+            raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
+
+        if obj.get("json"):
+            print_json(result)
+        elif obj.get("quiet"):
+            print_id(result.get("id", result.get("uuid", "")))
+        else:
+            view_id = result.get("id", result.get("uuid", ""))
+            label = f" ({name})" if name else ""
+            print_success(f"Created view {view_id}{label}")
+
     else:
-        view_id = result.get("id", result.get("uuid", ""))
-        print_success(f"Created view {view_id} ({name})")
+        if not is_interactive:
+            print_error(
+                "Provide --prompt (AI agent) or --sql (direct). "
+                "Usage: querri view new --prompt <DESC> | --sql <SQL>"
+            )
+        else:
+            print_error("Need a prompt or SQL definition. Try: querri view new --help")
+        raise typer.Exit(code=1)
 
 
 @view_app.command("list")
@@ -310,66 +385,3 @@ def chat_with_view(
         _print_sse_stream(stream)
     except Exception as exc:
         raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
-
-
-@view_app.command("new")
-def new_view(
-    ctx: typer.Context,
-    prompt: Optional[str] = typer.Option(None, "--prompt", "-p", help="Describe the view you want to create."),
-) -> None:
-    """Create a new view from a natural-language description.
-
-    Creates a draft view, runs the authoring agent with your prompt,
-    and generates a name and description from the result.
-
-    Examples:
-        querri view new -p "monthly revenue by product line"
-        querri view new -p "join customers with orders, show top 10 by total spend"
-    """
-    if prompt is None:
-        if sys.stdin.isatty():
-            prompt = input("Describe the view: ").strip()
-        else:
-            print_error("Missing required option --prompt. Usage: querri view new --prompt <DESCRIPTION>")
-            raise typer.Exit(code=1)
-
-    obj = ctx.ensure_object(dict)
-    client = get_client(ctx)
-
-    # 1. Create draft view (no name, no SQL)
-    try:
-        result = client.views.create()
-    except Exception as exc:
-        raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
-
-    view_uuid = result.get("id", result.get("uuid", ""))
-    print(f"Created draft view {view_uuid}", file=sys.stderr, flush=True)
-
-    # 2. Run the agent with the prompt
-    try:
-        stream = client.views.chat(view_uuid, message=prompt)
-        _print_sse_stream(stream)
-    except Exception as exc:
-        print_error(f"Agent error: {exc}")
-        print(f"\nView UUID: {view_uuid} (draft — use 'querri view chat' to continue)", file=sys.stderr)
-        raise typer.Exit(code=1)
-
-    # 3. Generate name + description from the conversation
-    try:
-        meta = client.views.generate_metadata(view_uuid)
-        name = meta.get("name", "")
-        desc = meta.get("description", "")
-        if name:
-            print(f"\n  Name: {name}", file=sys.stderr, flush=True)
-        if desc:
-            print(f"  Description: {desc}", file=sys.stderr, flush=True)
-    except Exception as exc:
-        print(f"\n  (metadata generation failed: {exc})", file=sys.stderr)
-
-    # 4. Print the view UUID for scripting
-    if obj.get("json"):
-        print_json({"id": view_uuid, "name": name, "description": desc})
-    elif obj.get("quiet"):
-        print_id(view_uuid)
-    else:
-        print(f"\n  View: {view_uuid}", file=sys.stderr)

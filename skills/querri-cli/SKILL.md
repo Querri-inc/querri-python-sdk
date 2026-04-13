@@ -5,7 +5,9 @@ description: Work with the Querri data analysis platform via the querri CLI. Use
 
 # Querri CLI Skill
 
-Querri is a data analysis platform. The `querri` CLI (`~/.local/bin/querri`, v0.2.0) talks to the Querri API. The SDK source lives at `~/paperclip/querri-python-sdk` and is installed in editable mode — code changes there take effect immediately.
+Querri is a data analysis platform. The `querri` CLI (`~/.local/bin/querri`) talks to the Querri API. The SDK source lives at `~/paperclip/querri-python-sdk` and is installed in editable mode — code changes there take effect immediately.
+
+The CLI is self-documenting — run `querri <command> --help` for full flag details.
 
 ## Critical: Global Flags Must Come First
 
@@ -118,21 +120,66 @@ querri chat cancel                                          # cancel active stre
 
 Chat responses include `message_id`, `text` (the AI response), `tool_calls` (analysis steps run), `files` (any generated files), and `reasoning`.
 
+## Views
+
+A view is a named SQL query over sources that can be materialized into a table. Views are created either by writing SQL directly or by describing what you want to an AI authoring agent.
+
+### Two creation flows
+
+**AI agent flow** — describe what you want; the agent writes the SQL and auto-generates a name and description:
+
+```bash
+querri view new -p "monthly revenue by product line"
+querri view new -n "Revenue" -p "revenue by region"    # AI + custom name
+```
+
+**Direct SQL flow** — provide the SQL yourself; the view is created immediately:
+
+```bash
+querri view new --name "Orders" --sql "SELECT * FROM orders"
+```
+
+Running `querri view new` with no flags drops into interactive mode, prompting for name, SQL, description, and AI prompt (all optional). At least one of `--prompt` or `--sql` is required.
+
+### Iterating with `view chat`
+
+After a view exists, continue the AI conversation to refine its SQL:
+
+```bash
+querri view chat <UUID> -m "join customers with orders by customer_id"
+querri view chat <UUID> -m "add a filter for active customers only"
+```
+
+### Other view commands
+
+```bash
+querri view list                                   # list all views
+querri view get <uuid>                             # view details
+querri view update <uuid> --sql "..."              # update SQL definition
+querri view preview <uuid>                         # preview rows without materializing
+querri view run [--view-uuids <uuid,uuid>]         # materialize (omit for full DAG)
+querri view delete <uuid>                          # delete
+```
+
 ## Sources
+
+A source is a connected data set — either ingested from a file or synced from a connector. Sources are the raw inputs that projects and views query over.
 
 ```bash
 querri source list [--search TEXT]                 # list all sources
 querri source get <source_id>                     # source detail
 querri source describe <source_id>                # schema: columns, types, row count
-querri source data <source_id>                    # preview row data
+querri source data <source_id>                    # preview paginated row data
 querri source query --source-id ID --sql SQL      # run SQL against source
 querri source ask <source_id> "question"          # NL question on source
-querri source create-data --name "X" --file f.json # create from JSON
+querri source create-data --name "X" --file f.json # create source from JSON file
 querri source update <source_id> --name "..."     # update config
 querri source sync <source_id>                    # trigger sync
 querri source delete <source_id>                  # delete
 querri source connectors                          # list available connector types
 ```
+
+`source create-data` reads a JSON array of objects from `--file` or stdin.
 
 ## Dashboards
 
