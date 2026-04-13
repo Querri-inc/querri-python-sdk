@@ -71,7 +71,7 @@ def _backoff_delay(attempt: int, retry_after: float | None = None) -> float:
     """
     if retry_after is not None and retry_after > 0:
         return retry_after
-    base = min(2**attempt, 30)
+    base: float = min(2**attempt, 30)
     jitter = random.random() * 0.5  # noqa: S311
     return base + jitter
 

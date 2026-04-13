@@ -44,7 +44,7 @@ def _get_profile_name(ctx: typer.Context) -> str:
 
 def _is_json(ctx: typer.Context) -> bool:
     obj = ctx.ensure_object(dict)
-    return obj.get("json", False)
+    return bool(obj.get("json", False))
 
 
 def _pick_organization(

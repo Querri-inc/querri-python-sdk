@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -335,7 +335,7 @@ class ChatStream:
         self._done = False
         self._cancelled = False
         self._consumed = False
-        self._message_id = response.headers.get("x-message-id")
+        self._message_id: str | None = response.headers.get("x-message-id")
 
     @property
     def message_id(self) -> str | None:
@@ -423,12 +423,12 @@ class ChatStream:
 
                 # JSON SSE: "data: {"type": "...", ...}" (no preceding event: line)
                 if prefix == "data" and data.startswith("{"):
-                    event = _build_event_from_json(data)
-                    if event is not None:
-                        self._events.append(event)
-                        if event.event_type == "text-delta" and event.text:
-                            self._text_chunks.append(event.text)
-                        yield event
+                    json_event = _build_event_from_json(data)
+                    if json_event is not None:
+                        self._events.append(json_event)
+                        if json_event.event_type == "text-delta" and json_event.text:
+                            self._text_chunks.append(json_event.text)
+                        yield json_event
                     continue
 
                 # "data: [DONE]" — end of stream
@@ -524,14 +524,14 @@ class AsyncChatStream:
         self._done = False
         self._cancelled = False
         self._consumed = False
-        self._message_id = response.headers.get("x-message-id")
+        self._message_id: str | None = response.headers.get("x-message-id")
 
     @property
     def message_id(self) -> str | None:
         """Server-assigned message ID from the ``x-message-id`` response header."""
         return self._message_id
 
-    async def __aiter__(self):  # type: ignore[override]
+    async def __aiter__(self) -> AsyncIterator[str]:
         """Iterate text chunks (backward-compatible v1 API)."""
         try:
             async for line in self._response.aiter_lines():
@@ -562,7 +562,7 @@ class AsyncChatStream:
             self._consumed = True
             await self._response.aclose()
 
-    async def events(self):  # type: ignore[override]
+    async def events(self) -> AsyncIterator[ChatStreamEvent]:
         """Iterate typed events (v2 API).
 
         Yields ``ChatStreamEvent`` objects for each SSE event.
@@ -595,12 +595,12 @@ class AsyncChatStream:
 
                 # JSON SSE: "data: {"type": "...", ...}"
                 if prefix == "data" and data.startswith("{"):
-                    event = _build_event_from_json(data)
-                    if event is not None:
-                        self._events.append(event)
-                        if event.event_type == "text-delta" and event.text:
-                            self._text_chunks.append(event.text)
-                        yield event
+                    json_event = _build_event_from_json(data)
+                    if json_event is not None:
+                        self._events.append(json_event)
+                        if json_event.event_type == "text-delta" and json_event.text:
+                            self._text_chunks.append(json_event.text)
+                        yield json_event
                     continue
 
                 # "data: [DONE]" — end of stream

@@ -64,7 +64,7 @@ class Sharing:
             Dict with user_id, resource_type, resource_id, revoked status.
         """
         resp = self._http.delete(f"/projects/{project_id}/shares/{user_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def list_project_shares(self, project_id: str) -> list[ShareEntry]:
         """List who has access to a project.
@@ -119,7 +119,7 @@ class Sharing:
             Dict with user_id, resource_type, resource_id, revoked status.
         """
         resp = self._http.delete(f"/dashboards/{dashboard_id}/shares/{user_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def list_dashboard_shares(self, dashboard_id: str) -> list[ShareEntry]:
         """List who has access to a dashboard.
@@ -166,7 +166,7 @@ class Sharing:
             f"/sources/{source_id}/org-share",
             json={"enabled": enabled, "permission": permission},
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 class AsyncSharing:
@@ -225,7 +225,7 @@ class AsyncSharing:
             Dict with user_id, resource_type, resource_id, revoked status.
         """
         resp = await self._http.delete(f"/projects/{project_id}/shares/{user_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def list_project_shares(self, project_id: str) -> list[ShareEntry]:
         """List who has access to a project.
@@ -280,7 +280,7 @@ class AsyncSharing:
             Dict with user_id, resource_type, resource_id, revoked status.
         """
         resp = await self._http.delete(f"/dashboards/{dashboard_id}/shares/{user_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def list_dashboard_shares(self, dashboard_id: str) -> list[ShareEntry]:
         """List who has access to a dashboard.
@@ -327,4 +327,4 @@ class AsyncSharing:
             f"/sources/{source_id}/org-share",
             json={"enabled": enabled, "permission": permission},
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]

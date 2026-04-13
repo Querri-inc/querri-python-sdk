@@ -15,6 +15,7 @@ import os
 import re
 import signal
 import sys
+from typing import Any
 
 import typer
 
@@ -73,8 +74,8 @@ def _debug(log: object | None, msg: str) -> None:
     from datetime import datetime
 
     ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    log.write(f"[{ts}] {msg}\n")  # type: ignore[union-attr]
-    log.flush()  # type: ignore[union-attr]
+    log.write(f"[{ts}] {msg}\n")  # type: ignore[attr-defined]
+    log.flush()  # type: ignore[attr-defined]
 
 
 project_chat_app = typer.Typer(
@@ -269,7 +270,7 @@ def _stream_plain(
         stream._response.close()
         return
 
-    final_steps: dict[str, dict] = {}
+    final_steps: dict[str, dict[str, Any]] = {}
     step_results_rendered = False
     _rendered_step_ids.clear()
     last_status = ""
@@ -375,7 +376,7 @@ def _stream_rich(
     response_text = ""
     status_line = ""  # Transient status (from server status-update or step progress)
     # Accumulate the latest tool output per step UUID from the stream
-    final_steps: dict[str, dict] = {}
+    final_steps: dict[str, dict[str, Any]] = {}
     step_results_rendered = False
     _rendered_step_ids.clear()
 
@@ -404,7 +405,7 @@ def _stream_rich(
         # Transient status at the very bottom (replaces each time)
         if status_line:
             parts.append(Text(f"  {status_line}", style="dim"))
-        return Group(*parts) if parts else Group(Text(""))
+        return Group(*parts) if parts else Group(Text(""))  # type: ignore[arg-type]
 
     _debug(debug_log, f"Stream started (project={project_id})")
 
@@ -475,9 +476,9 @@ def _stream_json(stream: object) -> None:
 
     text_parts: list[str] = []
     reasoning_parts: list[str] = []
-    tool_calls: list[dict] = []
-    files: list[dict] = []
-    usage: dict | None = None
+    tool_calls: list[dict[str, Any]] = []
+    files: list[dict[str, Any]] = []
+    usage: dict[str, Any] | None = None
 
     for event in stream.events():
         if event.event_type == "text-delta" and event.text:
@@ -493,7 +494,7 @@ def _stream_json(stream: object) -> None:
         elif event.event_type == "terminate":
             text_parts.append(f"\n[Stream closed: {event.terminate_reason}]")
 
-    result: dict = {
+    result: dict[str, Any] = {
         "message_id": stream.message_id,
         "text": "".join(text_parts),
         "tool_calls": tool_calls,
@@ -512,7 +513,9 @@ def _stream_json(stream: object) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _accumulate_tool_output(event: object, final_steps: dict[str, dict]) -> None:
+def _accumulate_tool_output(
+    event: object, final_steps: dict[str, dict[str, Any]]
+) -> None:
     """Accumulate the latest step data from a ``tool-output-available`` stream event.
 
     The server sends multiple progress updates per step. We keep the latest
@@ -534,7 +537,7 @@ def _get_step_status(tool_data: object) -> str:
     """Extract a human-readable status string from a tool-output-available event."""
     if not isinstance(tool_data, dict):
         return ""
-    msg = tool_data.get("message", "")
+    msg: str = tool_data.get("message", "")
     if msg:
         return msg
     steps = tool_data.get("steps", {})
@@ -629,7 +632,7 @@ _rendered_step_ids: set[str] = set()
 
 def _render_accumulated_steps(
     console: object,
-    final_steps: dict[str, dict],
+    final_steps: dict[str, dict[str, Any]],
     project_id: str,
     client: object | None = None,
 ) -> None:
@@ -784,7 +787,7 @@ def chat_show(
 # ---------------------------------------------------------------------------
 
 
-def _fetch_project_chat(client: object, project_id: str) -> dict | None:
+def _fetch_project_chat(client: object, project_id: str) -> dict[str, Any] | None:
     """Fetch the project's chat via ``GET /api/projects/{pid}/chat``."""
     try:
         import httpx as _httpx
@@ -799,7 +802,7 @@ def _fetch_project_chat(client: object, project_id: str) -> dict | None:
         if resp.status_code == 200:
             data = resp.json()
             if isinstance(data, list) and data:
-                return data[0]
+                return data[0]  # type: ignore[no-any-return]
             elif isinstance(data, dict):
                 return data
     except Exception as exc:
@@ -841,10 +844,10 @@ def _resolve_internal_url(client: object) -> tuple[str, dict[str, str]]:
         return "", {}
 
 
-def _build_step_store(project: object) -> dict[str, dict]:
+def _build_step_store(project: object) -> dict[str, dict[str, Any]]:
     """Build a step UUID -> step data lookup from the project's steps list."""
     steps = getattr(project, "steps", None) or []
-    store: dict[str, dict] = {}
+    store: dict[str, dict[str, Any]] = {}
     for s in steps:
         store[s.id] = {
             "name": s.name,
@@ -867,7 +870,7 @@ def _fetch_step_data_preview(
     base_url: str,
     auth_headers: dict[str, str],
     limit: int = 5,
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Fetch the first few rows of step data from the internal API."""
     try:
         import httpx as _httpx
@@ -880,15 +883,15 @@ def _fetch_step_data_preview(
             timeout=10.0,
         )
         if resp.status_code == 200:
-            return resp.json().get("data", [])
+            return resp.json().get("data", [])  # type: ignore[no-any-return]
     except Exception as exc:
         logger.debug("Failed to fetch step data preview for %s: %s", step_id, exc)
     return None
 
 
 def _render_messages_with_parts(
-    messages: list[dict],
-    step_store: dict[str, dict],
+    messages: list[dict[str, Any]],
+    step_store: dict[str, dict[str, Any]],
     project_id: str,
     base_url: str,
     auth_headers: dict[str, str],
@@ -995,7 +998,7 @@ def _render_messages_with_parts(
                     raw_steps = output.get("steps", {})
 
                     # steps can be a dict {uuid: {step_data}} or a list
-                    step_items: list[tuple[str, dict]] = []
+                    step_items: list[tuple[str, dict[str, Any]]] = []
                     if isinstance(raw_steps, dict):
                         for sid, sdata in raw_steps.items():
                             if isinstance(sdata, dict):
@@ -1030,7 +1033,9 @@ def _render_messages_with_parts(
     console.print()
 
 
-def _parse_stream_chunks(chunks: list[str], step_store: dict[str, dict]) -> list[dict]:
+def _parse_stream_chunks(
+    chunks: list[str], step_store: dict[str, dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Reconstruct ``parts[]`` from raw SSE ``stream_chunks``.
 
     The server stores newer messages as raw SSE lines (e.g.
@@ -1042,9 +1047,9 @@ def _parse_stream_chunks(chunks: list[str], step_store: dict[str, dict]) -> list
     text_buf: list[str] = []
     reasoning_buf: list[str] = []
     in_reasoning = False
-    parts: list[dict] = []
+    parts: list[dict[str, Any]] = []
     # Track the last tool-output-available per toolCallId (final has full data)
-    tool_outputs: dict[str, dict] = {}
+    tool_outputs: dict[str, dict[str, Any]] = {}
 
     for raw in chunks:
         line = raw.strip()
@@ -1127,7 +1132,9 @@ def _parse_stream_chunks(chunks: list[str], step_store: dict[str, dict]) -> list
     return parts
 
 
-def _merge_step_data(embedded: dict, from_store: dict) -> dict:
+def _merge_step_data(
+    embedded: dict[str, Any], from_store: dict[str, Any]
+) -> dict[str, Any]:
     """Merge embedded step data (from chat parts) with stepStore data.
 
     The embedded data from ``output.steps`` contains the full step object
@@ -1139,7 +1146,7 @@ def _merge_step_data(embedded: dict, from_store: dict) -> dict:
     has_figure = bool(result.get("figure_url") or result.get("svg_url"))
     qdf = result.get("qdf") or {}
 
-    merged: dict = {
+    merged: dict[str, Any] = {
         "name": embedded.get("name") or from_store.get("name", ""),
         "type": embedded.get("tool")
         or embedded.get("type")
@@ -1159,7 +1166,7 @@ def _merge_step_data(embedded: dict, from_store: dict) -> dict:
 def _render_inline_step(
     console: object,
     step_id: str,
-    step: dict,
+    step: dict[str, Any],
     project_id: str,
     base_url: str,
     auth_headers: dict[str, str],
@@ -1227,7 +1234,7 @@ def _render_inline_step(
             if fig_url.startswith("http")
             else f"{base_url}/api/files/stream/{fig_url.lstrip('/')}"
         )
-        img_width = min(console.width - 6, 70)
+        img_width = min(console.width - 6, 70)  # type: ignore[attr-defined]
         content_parts.append(
             render_image_rich(
                 resolved, max_width=img_width, max_height=24, headers=auth_headers
@@ -1235,9 +1242,9 @@ def _render_inline_step(
         )
 
     content = (
-        Group(*content_parts) if content_parts else Text("[dim]Step completed[/dim]")
+        Group(*content_parts) if content_parts else Text("[dim]Step completed[/dim]")  # type: ignore[arg-type]
     )
-    console.print(
+    console.print(  # type: ignore[attr-defined]
         Panel(
             content,
             title=f"[bold {QUERRI_ORANGE}]{icon} {name}[/bold {QUERRI_ORANGE}]",

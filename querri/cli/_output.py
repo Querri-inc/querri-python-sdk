@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from typing import Any
 
 import typer
@@ -78,7 +78,7 @@ def print_id(id_value: str) -> None:
 
 
 def print_table(
-    data: Sequence[Any],
+    data: Iterable[Any],
     columns: list[tuple[str, str]],
     *,
     ctx: typer.Context | None = None,
@@ -88,10 +88,11 @@ def print_table(
     In TTY mode, uses Rich tables. In non-TTY mode, outputs tab-delimited text.
 
     Args:
-        data: Sequence of objects (dicts or Pydantic models).
+        data: Iterable of objects (dicts, Pydantic models, or cursor pages).
         columns: List of (field_name, display_header) tuples.
         ctx: Optional Typer context for checking --json/--quiet flags.
     """
+    data = list(data)
     obj = ctx.ensure_object(dict) if ctx else {}
     is_interactive = obj.get("interactive", IS_INTERACTIVE)
 
@@ -209,16 +210,17 @@ def print_json_error(
 EXIT_SERVER_ERROR = 5
 
 
-def handle_api_error(exc: Exception, *, is_json: bool = False) -> int:
+def handle_api_error(exc: Exception, *, is_json: bool | None = False) -> int:
     """Handle an SDK exception, print appropriate output, return exit code.
 
     Args:
         exc: The exception from the SDK.
-        is_json: Whether --json mode is active.
+        is_json: Whether --json mode is active. ``None`` is treated as ``False``.
 
     Returns:
         Exit code to use.
     """
+    is_json = bool(is_json)
     from querri._exceptions import (
         APIError,
         AuthenticationError,

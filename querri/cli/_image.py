@@ -156,17 +156,18 @@ def render_image(
     if new_h % 2 != 0:
         new_h += 1
 
-    img = img.resize((new_w, new_h), Image.LANCZOS)
+    img = img.resize((new_w, new_h), Image.LANCZOS)  # type: ignore[attr-defined]
     pixels = img.load()
+    assert pixels is not None
 
     lines: list[str] = []
     for y in range(0, new_h, 2):
         line_parts: list[str] = []
         for x in range(new_w):
             # Top pixel = foreground, bottom pixel = background
-            r1, g1, b1 = pixels[x, y]
+            r1, g1, b1 = pixels[x, y]  # type: ignore[misc]
             if y + 1 < new_h:
-                r2, g2, b2 = pixels[x, y + 1]
+                r2, g2, b2 = pixels[x, y + 1]  # type: ignore[misc]
             else:
                 r2, g2, b2 = r1, g1, b1
 

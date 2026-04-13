@@ -139,7 +139,7 @@ def describe_source(
             col_data = []
             for col in columns:
                 detail = column_details.get(col, {})
-                row: dict = {
+                row: dict[str, str] = {
                     "column": col,
                     "type": detail.get("type") or column_types.get(col, "unknown"),
                 }
@@ -158,7 +158,7 @@ def describe_source(
                 col_data.append(row)
 
             # Build header list dynamically based on what data is present
-            all_keys = set()
+            all_keys: set[str] = set()
             for r in col_data:
                 all_keys.update(r.keys())
 

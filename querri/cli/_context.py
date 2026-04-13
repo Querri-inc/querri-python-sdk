@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
+
+if TYPE_CHECKING:
+    from querri._auth import TokenProfile
 
 from querri._client import Querri
 from querri._exceptions import ConfigError
@@ -131,7 +134,7 @@ def _handle_config_error(obj: dict[str, Any], exc: ConfigError) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _get_profile(ctx: typer.Context) -> TokenProfile | None:  # noqa: F821
+def _get_profile(ctx: typer.Context) -> TokenProfile | None:
     """Load the active TokenProfile (or None)."""
     from querri._auth import TokenStore
 
@@ -141,7 +144,7 @@ def _get_profile(ctx: typer.Context) -> TokenProfile | None:  # noqa: F821
     return store.profiles.get(profile_name)
 
 
-def _save_profile(ctx: typer.Context, profile: TokenProfile) -> None:  # noqa: F821
+def _save_profile(ctx: typer.Context, profile: "TokenProfile") -> None:
     """Persist updates to the active TokenProfile."""
     from querri._auth import TokenStore
 
@@ -157,14 +160,14 @@ def resolve_project_id(ctx: typer.Context) -> str:
     is_json = obj.get("json", False)
 
     # 1. Explicit --project flag
-    project = obj.get("project")
+    project: str | None = obj.get("project")
     if project:
         return project
 
     # 2. Stored active project
     profile = _get_profile(ctx)
     if profile and profile.active_project_id:
-        return profile.active_project_id
+        return str(profile.active_project_id)
 
     # 3. Error
     from querri.cli._output import print_error
@@ -195,7 +198,7 @@ def resolve_user_id(ctx: typer.Context) -> str:
 
     profile = _get_profile(ctx)
     if profile and profile.user_id:
-        return profile.user_id
+        return str(profile.user_id)
 
     obj = ctx.ensure_object(dict)
     from querri.cli._output import print_error

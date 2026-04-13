@@ -6,7 +6,7 @@ pagination patterns transparently.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
@@ -265,7 +265,7 @@ class AsyncCursorPage(Generic[T]):
         """Consume all pages and return items as a flat list."""
         return [item async for item in self]
 
-    async def __aiter__(self):  # type: ignore[override]
+    async def __aiter__(self) -> AsyncIterator[T]:
         page = await self._ensure_first_page()
         for item in page.data:
             yield item

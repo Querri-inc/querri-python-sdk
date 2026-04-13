@@ -97,7 +97,7 @@ class Keys:
             Dict with id and status ("revoked").
         """
         resp = self._http.delete(f"/keys/{key_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 class AsyncKeys:
@@ -188,4 +188,4 @@ class AsyncKeys:
             Dict with id and status ("revoked").
         """
         resp = await self._http.delete(f"/keys/{key_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]

@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from rich.text import Text
 
+    from querri.types.project import Project, StepSummary
+
 import typer
 
 from querri.cli._context import (
@@ -123,6 +125,7 @@ def select_project(
     """
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
+    project: Project | None
 
     # If no argument, show interactive picker with all projects
     if not name_or_id:
@@ -689,7 +692,7 @@ def show_project(
     _render_project_show(project, top=top, bottom=bottom)
 
 
-def _get_full_project(client: object, project_id: str) -> object | None:
+def _get_full_project(client: object, project_id: str) -> Project | None:
     """Fetch the full project with stepStore from the internal API endpoint.
 
     The ``/api/v1/`` endpoint returns a simplified view without graph
@@ -745,7 +748,7 @@ _TYPE_ICONS = {
 
 
 def _render_project_show(
-    project: object,
+    project: Project,
     *,
     top: int | None = None,
     bottom: int | None = None,
@@ -804,7 +807,7 @@ def _render_project_show(
         steps = sorted_steps
 
     # Full lookup (so parent refs outside the slice still resolve for labels)
-    by_id: dict[str, object] = {s.id: s for s in all_steps}
+    by_id: dict[str, StepSummary] = {s.id: s for s in all_steps}
     # Set of IDs in the visible slice
     visible_ids: set[str] = {s.id for s in steps}
 
@@ -829,7 +832,7 @@ def _render_project_show(
 
     visited: set[str] = set()
 
-    def _add_step(parent_branch: Tree, step: object) -> None:
+    def _add_step(parent_branch: Tree, step: StepSummary) -> None:
         if step.id in visited:
             # Avoid cycles — show reference instead
             parent_branch.add(
@@ -874,7 +877,7 @@ def _render_project_show(
     console.print()
 
 
-def _step_label(step: object, by_id: dict[str, object]) -> Text:
+def _step_label(step: StepSummary, by_id: dict[str, StepSummary]) -> Text:
     """Build a Rich Text label for a step node."""
     from rich.text import Text
 

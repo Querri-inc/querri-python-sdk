@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from typing import Any
 
 import typer
 
@@ -351,7 +352,7 @@ def preview_view(
             print("No data returned.", file=sys.stderr)
 
 
-def _print_sse_stream(stream) -> None:
+def _print_sse_stream(stream: Any) -> None:
     """Parse VercelStream v2 SSE data and print text + tool activity to terminal."""
     for line in stream:
         line = line.strip()

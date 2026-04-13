@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 from .._base_client import AsyncHTTPClient, SyncHTTPClient
@@ -52,7 +52,7 @@ class Views:
         if description is not None:
             payload["description"] = description
         resp = self._http.post("/views", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def list(self) -> builtins.list[dict[str, Any]]:
         """List all views.
@@ -62,7 +62,7 @@ class Views:
         """
         resp = self._http.get("/views")
         body = resp.json()
-        return body.get("data", body) if isinstance(body, dict) else body
+        return body.get("data", body) if isinstance(body, dict) else body  # type: ignore[no-any-return]
 
     def get(self, view_uuid: str) -> dict[str, Any]:
         """Get view details.
@@ -74,7 +74,7 @@ class Views:
             View detail dict.
         """
         resp = self._http.get(f"/views/{view_uuid}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def update(
         self,
@@ -99,7 +99,7 @@ class Views:
         if description is not None:
             payload["description"] = description
         resp = self._http.patch(f"/views/{view_uuid}", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def delete(self, view_uuid: str) -> None:
         """Delete a view.
@@ -123,7 +123,7 @@ class Views:
         if view_uuids is not None:
             payload["view_uuids"] = view_uuids
         resp = self._http.post("/views/run", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def preview(self, view_uuid: str, *, limit: int = 100) -> dict[str, Any]:
         """Preview view results without materializing.
@@ -139,7 +139,7 @@ class Views:
             f"/views/{view_uuid}/preview",
             json={"limit": limit},
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def chat(self, view_uuid: str, *, message: str) -> Iterator[str]:
         """Send a message to the view authoring agent and stream the response.
@@ -174,7 +174,7 @@ class Views:
             Dict with generated name and description.
         """
         resp = self._http.post(f"/views/{view_uuid}/generate-metadata")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 class AsyncViews:
@@ -220,7 +220,7 @@ class AsyncViews:
         if description is not None:
             payload["description"] = description
         resp = await self._http.post("/views", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def list(self) -> builtins.list[dict[str, Any]]:
         """List all views.
@@ -230,7 +230,7 @@ class AsyncViews:
         """
         resp = await self._http.get("/views")
         body = resp.json()
-        return body.get("data", body) if isinstance(body, dict) else body
+        return body.get("data", body) if isinstance(body, dict) else body  # type: ignore[no-any-return]
 
     async def get(self, view_uuid: str) -> dict[str, Any]:
         """Get view details.
@@ -242,7 +242,7 @@ class AsyncViews:
             View detail dict.
         """
         resp = await self._http.get(f"/views/{view_uuid}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def update(
         self,
@@ -267,7 +267,7 @@ class AsyncViews:
         if description is not None:
             payload["description"] = description
         resp = await self._http.patch(f"/views/{view_uuid}", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def delete(self, view_uuid: str) -> None:
         """Delete a view.
@@ -293,7 +293,7 @@ class AsyncViews:
         if view_uuids is not None:
             payload["view_uuids"] = view_uuids
         resp = await self._http.post("/views/run", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def preview(self, view_uuid: str, *, limit: int = 100) -> dict[str, Any]:
         """Preview view results without materializing.
@@ -309,9 +309,9 @@ class AsyncViews:
             f"/views/{view_uuid}/preview",
             json={"limit": limit},
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
-    async def chat(self, view_uuid: str, *, message: str):
+    async def chat(self, view_uuid: str, *, message: str) -> AsyncIterator[str]:
         """Send a message to the view authoring agent and stream the response.
 
         Args:
@@ -344,4 +344,4 @@ class AsyncViews:
             Dict with generated name and description.
         """
         resp = await self._http.post(f"/views/{view_uuid}/generate-metadata")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]

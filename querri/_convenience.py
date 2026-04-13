@@ -254,7 +254,7 @@ def sync_get_session(
         user_id,
         session.get("expires_in"),
     )
-    return session
+    return session  # type: ignore[no-any-return]
 
 
 def _sync_apply_access(
@@ -444,7 +444,7 @@ async def async_get_session(
         user_id,
         session.get("expires_in"),
     )
-    return session
+    return session  # type: ignore[no-any-return]
 
 
 async def _async_apply_access(

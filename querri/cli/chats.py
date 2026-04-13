@@ -86,7 +86,7 @@ def _resolve_chat(ctx: typer.Context, chat_id: str | None) -> str:
         return chat_id
     profile = _get_profile(ctx)
     if profile and profile.active_chat_id:
-        return profile.active_chat_id
+        return str(profile.active_chat_id)
     if sys.stdin.isatty():
         chat_id = input("Chat ID: ").strip()
         if chat_id:

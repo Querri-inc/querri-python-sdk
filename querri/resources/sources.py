@@ -35,7 +35,7 @@ class Sources:
         """
         resp = self._http.get("/connectors")
         body = resp.json()
-        return body.get("data", [])
+        return body.get("data", [])  # type: ignore[no-any-return]
 
     # -- Source CRUD ---------------------------------------------------------
 
@@ -64,7 +64,7 @@ class Sources:
                 "config": config or {},
             },
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def create_data_source(
         self,
@@ -97,7 +97,7 @@ class Sources:
             Source detail dict.
         """
         resp = self._http.get(f"/sources/{source_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def list(self, *, search: str | None = None) -> builtins.list[dict[str, Any]]:
         """List data sources for the organization.
@@ -114,7 +114,7 @@ class Sources:
         if search:
             search_lower = search.lower()
             items = [s for s in items if search_lower in s.get("name", "").lower()]
-        return items
+        return items  # type: ignore[no-any-return]
 
     def update(
         self,
@@ -143,7 +143,7 @@ class Sources:
         if config is not None:
             payload["config"] = config
         resp = self._http.patch(f"/sources/{source_id}", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     def delete(self, source_id: str) -> None:
         """Delete a data source.
@@ -163,7 +163,7 @@ class Sources:
             Dict with id and status ("sync_queued").
         """
         resp = self._http.post(f"/sources/{source_id}/sync")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     # -- Data access (merged from Data resource) ----------------------------
 
@@ -257,7 +257,7 @@ class Sources:
             f"/sources/{source_id}/ask",
             json={"question": question},
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
 
 class AsyncSources:
@@ -286,7 +286,7 @@ class AsyncSources:
         """
         resp = await self._http.get("/connectors")
         body = resp.json()
-        return body.get("data", [])
+        return body.get("data", [])  # type: ignore[no-any-return]
 
     # -- Source CRUD ---------------------------------------------------------
 
@@ -315,7 +315,7 @@ class AsyncSources:
                 "config": config or {},
             },
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def create_data_source(
         self,
@@ -348,7 +348,7 @@ class AsyncSources:
             Source detail dict.
         """
         resp = await self._http.get(f"/sources/{source_id}")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def list(self, *, search: str | None = None) -> builtins.list[dict[str, Any]]:
         """List data sources for the organization.
@@ -365,7 +365,7 @@ class AsyncSources:
         if search:
             search_lower = search.lower()
             items = [s for s in items if search_lower in s.get("name", "").lower()]
-        return items
+        return items  # type: ignore[no-any-return]
 
     async def update(
         self,
@@ -394,7 +394,7 @@ class AsyncSources:
         if config is not None:
             payload["config"] = config
         resp = await self._http.patch(f"/sources/{source_id}", json=payload)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     async def delete(self, source_id: str) -> None:
         """Delete a data source.
@@ -414,7 +414,7 @@ class AsyncSources:
             Dict with id and status ("sync_queued").
         """
         resp = await self._http.post(f"/sources/{source_id}/sync")
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
     # -- Data access (merged from Data resource) ----------------------------
 
@@ -508,4 +508,4 @@ class AsyncSources:
             f"/sources/{source_id}/ask",
             json={"question": question},
         )
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
