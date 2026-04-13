@@ -171,7 +171,7 @@ def source_data(
     ctx: typer.Context,
     source_id: Optional[str] = typer.Argument(default=None, help="Source ID."),
     page: int = typer.Option(1, "--page", help="Page number."),
-    page_size: int = typer.Option(100, "--page-size", help="Rows per page."),
+    page_size: int = typer.Option(25, "--page-size", help="Rows per page."),
 ) -> None:
     """View paginated row data from a source."""
     if source_id is None:
@@ -206,10 +206,10 @@ def source_data(
 @sources_app.command("query")
 def query_data(
     ctx: typer.Context,
-    sql: Optional[str] = typer.Option(None, "--sql", "-s", help="SQL query string."),
+    sql: Optional[str] = typer.Option(None, "--sql", help="SQL query string."),
     source_id: Optional[str] = typer.Option(None, "--source-id", help="Source to query."),
     page: int = typer.Option(1, "--page", help="Page number."),
-    page_size: int = typer.Option(100, "--page-size", help="Rows per page."),
+    page_size: int = typer.Option(25, "--page-size", help="Rows per page."),
 ) -> None:
     """Run a SQL query against a data source."""
     if source_id is None:

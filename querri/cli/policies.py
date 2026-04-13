@@ -103,7 +103,7 @@ def new_policy(
     source_ids: Optional[str] = typer.Option(None, "--source-ids", help="Comma-separated source IDs."),
     row_filters: Optional[str] = typer.Option(None, "--row-filters", help="JSON array of row filter objects."),
 ) -> None:
-    """Create an access policy."""
+    """Create a new access policy."""
     if not name:
         if sys.stdin.isatty():
             name = input("Policy name: ").strip()

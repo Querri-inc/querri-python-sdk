@@ -338,43 +338,6 @@ def get_project(
         )
 
 
-# ---------------------------------------------------------------------------
-# querri project create (alias for new, keeps --name style for scripts)
-# ---------------------------------------------------------------------------
-
-
-@projects_app.command("create", hidden=True)
-def create_project(
-    ctx: typer.Context,
-    name: str = typer.Option(..., "--name", "-n", help="Project name."),
-    user_id: Optional[str] = typer.Option(None, "--user-id", help="Owner user ID."),
-    description: Optional[str] = typer.Option(None, "--description", "-d", help="Description."),
-) -> None:
-    """Create a new project (scripting interface)."""
-    obj = ctx.ensure_object(dict)
-    client = get_client(ctx)
-    uid = user_id or resolve_user_id(ctx)
-
-    try:
-        project = client.projects.create(name=name, user_id=uid, description=description)
-    except Exception as exc:
-        raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json")))
-
-    # Auto-select
-    profile = _get_profile(ctx)
-    if profile:
-        profile.active_project_id = project.id
-        profile.active_project_name = name
-        profile.active_chat_id = ""
-        _save_profile(ctx, profile)
-
-    if obj.get("json"):
-        print_json(project)
-    elif obj.get("quiet"):
-        print_id(project.id)
-    else:
-        print_success(f"Created and selected project: {name} ({project.id})")
-
 
 # ---------------------------------------------------------------------------
 # querri project update

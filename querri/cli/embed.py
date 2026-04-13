@@ -33,7 +33,7 @@ def new_session(
     origin: Optional[str] = typer.Option(None, "--origin", help="Allowed origin URL."),
     ttl: int = typer.Option(3600, "--ttl", help="Session TTL in seconds."),
 ) -> None:
-    """Create an embedded analytics session."""
+    """Create a new embedded analytics session."""
     if not user_id:
         if sys.stdin.isatty():
             user_id = input("User ID: ").strip()
@@ -99,7 +99,7 @@ def refresh_session(
 @embed_app.command("list")
 def list_sessions(
     ctx: typer.Context,
-    limit: int = typer.Option(100, "--limit", "-l", help="Max results."),
+    limit: int = typer.Option(25, "--limit", "-l", help="Max results."),
 ) -> None:
     """List active sessions."""
     obj = ctx.ensure_object(dict)

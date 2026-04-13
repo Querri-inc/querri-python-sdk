@@ -157,7 +157,7 @@ class TestFilePathValidation:
                 [
                     "--api-key", "qk_test123456",
                     "--org-id", "org_1",
-                    "files", "upload", "/nonexistent/path/file.csv",
+                    "file", "upload", "/nonexistent/path/file.csv",
                 ],
             )
             assert result.exit_code == 1
@@ -202,7 +202,7 @@ class TestExitCodeMapping:
 
         exc = ServerError("Internal error", status=500)
         code = handle_api_error(exc, is_json=False)
-        assert code == 1
+        assert code == 5
 
     def test_handle_api_error_json_mode(self, capsys) -> None:
         """JSON mode outputs structured error."""

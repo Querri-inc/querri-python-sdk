@@ -279,7 +279,7 @@ def run_views(
 def preview_view(
     ctx: typer.Context,
     view_id: Optional[str] = typer.Argument(default=None, help="View ID."),
-    limit: int = typer.Option(100, "--limit", "-l", help="Max rows to return."),
+    limit: int = typer.Option(25, "--limit", "-l", help="Max rows to return."),
 ) -> None:
     """Preview view results without materializing."""
     if view_id is None:

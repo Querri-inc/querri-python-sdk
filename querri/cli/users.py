@@ -28,7 +28,7 @@ users_app = typer.Typer(
 @users_app.command("list")
 def list_users(
     ctx: typer.Context,
-    limit: int = typer.Option(50, "--limit", "-l", help="Max results."),
+    limit: int = typer.Option(25, "--limit", "-l", help="Max results."),
     after: Optional[str] = typer.Option(None, "--after", help="Cursor for pagination."),
     external_id: Optional[str] = typer.Option(None, "--external-id", help="Filter by external ID."),
 ) -> None:
