@@ -177,8 +177,9 @@ class TokenStore:
         }
         content = json.dumps(data, indent=2)
 
-        # Atomic write: create temp file with 0600 permissions, then rename
-        tmp_path_obj = self.STORE_DIR / ".tokens_tmp"
+        # Atomic write: create a unique temp file (pid-stamped to avoid races
+        # when multiple querri processes run concurrently), then rename.
+        tmp_path_obj = self.STORE_DIR / f".tokens_tmp_{os.getpid()}"
         try:
             # Create file with restricted permissions — no race window
             fd = os.open(
