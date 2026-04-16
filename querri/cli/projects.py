@@ -715,7 +715,7 @@ def _get_full_project(client: object, project_id: str) -> Project | None:
         http = client._http  # type: ignore[attr-defined]
         # The SDK's request() method handles auth headers and retries
         base_url = str(http._client.base_url)
-        internal_base = base_url.replace("/api/v1", "/api")
+        internal_base = base_url.replace("/api/v1", "/api").rstrip("/")
 
         import httpx as _httpx
 

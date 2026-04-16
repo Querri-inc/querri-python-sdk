@@ -93,7 +93,10 @@ def new_view(
         # Run the authoring agent
         try:
             stream = client.views.chat(view_id, message=prompt)
-            _print_sse_stream(stream)
+            if obj.get("json"):
+                _collect_sse_stream(stream)
+            else:
+                _print_sse_stream(stream)
         except Exception as exc:
             print_error(f"Agent error: {exc}")
             print(
@@ -352,8 +355,8 @@ def preview_view(
             print("No data returned.", file=sys.stderr)
 
 
-def _print_sse_stream(stream: Any) -> None:
-    """Parse VercelStream v2 SSE data and print text + tool activity to terminal."""
+def _iter_sse_events(stream: Any) -> Any:
+    """Yield parsed SSE events from a view agent stream."""
     for line in stream:
         line = line.strip()
         if not line or line == "[DONE]":
@@ -364,7 +367,12 @@ def _print_sse_stream(stream: Any) -> None:
             event = json.loads(line)
         except (json.JSONDecodeError, TypeError):
             continue
+        yield event
 
+
+def _print_sse_stream(stream: Any) -> None:
+    """Parse VercelStream v2 SSE data and print text + tool activity to terminal."""
+    for event in _iter_sse_events(stream):
         event_type = event.get("type", "")
 
         if event_type == "text-delta":
@@ -404,6 +412,25 @@ def _print_sse_stream(stream: Any) -> None:
             print("", flush=True)  # Final newline
 
 
+def _collect_sse_stream(stream: Any) -> dict[str, Any]:
+    """Buffer a view agent SSE stream and return a JSON-friendly result dict."""
+    text_parts: list[str] = []
+    tool_calls: list[dict[str, Any]] = []
+
+    for event in _iter_sse_events(stream):
+        event_type = event.get("type", "")
+
+        if event_type == "text-delta":
+            text_parts.append(event.get("delta", ""))
+        elif event_type == "tool-output-available":
+            tool_calls.append({
+                "tool_name": event.get("toolName", ""),
+                "output": event.get("output", {}),
+            })
+
+    return {"text": "".join(text_parts), "tool_calls": tool_calls}
+
+
 @view_app.command("chat")
 def chat_with_view(
     ctx: typer.Context,
@@ -440,10 +467,17 @@ def chat_with_view(
             raise typer.Exit(code=1)
 
     obj = ctx.ensure_object(dict)
+    is_json = obj.get("json", False)
     client = get_client(ctx)
 
     try:
         stream = client.views.chat(view_id, message=message)
-        _print_sse_stream(stream)
+        if is_json:
+            _collect_sse_stream(stream)
+            # Fetch the updated view and output it as JSON
+            updated = client.views.get(view_id)
+            print_json(updated)
+        else:
+            _print_sse_stream(stream)
     except Exception as exc:
-        raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json"))) from None
+        raise typer.Exit(code=handle_api_error(exc, is_json=is_json)) from None
