@@ -20,6 +20,7 @@ from ._pagination import AsyncCursorPage, SyncCursorPage
 from ._streaming import AsyncChatStream, ChatStream, ChatStreamEvent
 from ._user_client import AsyncUserQuerri, UserQuerri
 from ._version import __version__
+from .types.skill import Skill
 
 __all__ = [
     "Querri",
@@ -27,6 +28,8 @@ __all__ = [
     "UserQuerri",
     "AsyncUserQuerri",
     "__version__",
+    # Types
+    "Skill",
     # Exceptions
     "QuerriError",
     "APIError",

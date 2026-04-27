@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .resources.policies import AsyncPolicies, Policies
     from .resources.projects import AsyncProjects, Projects
     from .resources.sharing import AsyncSharing, Sharing
+    from .resources.skills import AsyncSkills, Skills
     from .resources.sources import AsyncSources, Sources
     from .resources.usage import AsyncUsage, Usage
     from .resources.users import AsyncUsers, Users
@@ -85,6 +86,7 @@ class Querri:
         self._views: object | None = None
         self._keys: object | None = None
         self._sharing: object | None = None
+        self._skills: object | None = None
         self._usage: object | None = None
         self._audit: object | None = None
 
@@ -167,6 +169,14 @@ class Querri:
 
             self._sharing = Sharing(self._http)
         return self._sharing  # type: ignore[return-value]
+
+    @property
+    def skills(self) -> "Skills":
+        if self._skills is None:
+            from .resources.skills import Skills
+
+            self._skills = Skills(self._http)
+        return self._skills  # type: ignore[return-value]
 
     @property
     def usage(self) -> "Usage":
@@ -268,6 +278,7 @@ class AsyncQuerri:
         self._views: object | None = None
         self._keys: object | None = None
         self._sharing: object | None = None
+        self._skills: object | None = None
         self._usage: object | None = None
         self._audit: object | None = None
 
@@ -350,6 +361,14 @@ class AsyncQuerri:
 
             self._sharing = AsyncSharing(self._http)
         return self._sharing  # type: ignore[return-value]
+
+    @property
+    def skills(self) -> "AsyncSkills":
+        if self._skills is None:
+            from .resources.skills import AsyncSkills
+
+            self._skills = AsyncSkills(self._http)
+        return self._skills  # type: ignore[return-value]
 
     @property
     def usage(self) -> "AsyncUsage":

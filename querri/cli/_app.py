@@ -17,6 +17,7 @@ from querri.cli.keys import keys_app
 from querri.cli.policies import policies_app
 from querri.cli.projects import projects_app
 from querri.cli.sharing import sharing_app
+from querri.cli.skills import skills_app
 from querri.cli.sources import sources_app
 from querri.cli.steps import steps_app
 from querri.cli.usage import usage_app
@@ -225,6 +226,11 @@ main_app.add_typer(
 main_app.add_typer(
     dashboards_app,
     name="dashboard",
+    rich_help_panel="[#f15a24]Projects & Data[/#f15a24]",
+)
+main_app.add_typer(
+    skills_app,
+    name="skill",
     rich_help_panel="[#f15a24]Projects & Data[/#f15a24]",
 )
 
