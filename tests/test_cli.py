@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from typer.testing import CliRunner
 
+from querri._version import __version__
 from querri.cli._app import main_app
 
 runner = CliRunner()
@@ -43,7 +44,7 @@ class TestScaffold:
     def test_version(self) -> None:
         result = runner.invoke(main_app, ["--version"])
         assert result.exit_code == 0
-        assert "querri 0.2.0" in result.output
+        assert f"querri {__version__}" in result.output
 
     def test_projects_help(self) -> None:
         result = runner.invoke(main_app, ["project", "--help"])

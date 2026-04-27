@@ -15,6 +15,7 @@ from querri._config import (
     resolve_config,
 )
 from querri._exceptions import ConfigError
+from querri._version import __version__
 
 
 class TestResolveConfig:
@@ -134,4 +135,4 @@ class TestClientConfig:
     def test_user_agent(self):
         cfg = ClientConfig(api_key="qk_abc", org_id="org_123")
         assert cfg.user_agent.startswith("querri-python/")
-        assert "0.2.0" in cfg.user_agent
+        assert __version__ in cfg.user_agent

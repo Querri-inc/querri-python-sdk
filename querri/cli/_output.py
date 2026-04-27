@@ -256,7 +256,10 @@ def handle_api_error(exc: Exception, *, is_json: bool | None = False) -> int:
     elif isinstance(exc, APIError) and exc.status == 501:
         exit_code = EXIT_ERROR
         error_type = "not_implemented"
-        message = "This feature is not yet available via the API. Use the Querri web app instead."
+        message = (
+            "This feature is not yet available via the API. "
+            "Use the Querri web app instead."
+        )
     else:
         exit_code = EXIT_ERROR
         error_type = "api_error"

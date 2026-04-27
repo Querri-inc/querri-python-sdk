@@ -24,7 +24,7 @@ import httpx
 # ---------------------------------------------------------------------------
 
 OAUTH_TIMEOUT_SECONDS = 120
-OAUTH_CALLBACK_PORT = 11847  # Fixed port registered as allowed redirect URI on the server
+OAUTH_CALLBACK_PORT = 11847  # Fixed port; registered as allowed redirect URI
 REFRESH_BUFFER_SECONDS = 300  # 5 minutes
 
 

@@ -133,9 +133,8 @@ def list_sessions(
             row = dict(s) if isinstance(s, dict) else s.__dict__.copy()
             ts = row.get("created_at")
             if isinstance(ts, (int, float)):
-                row["created_at"] = datetime.fromtimestamp(ts, tz=timezone.utc).strftime(
-                    "%Y-%m-%d %H:%M UTC"
-                )
+                dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                row["created_at"] = dt.strftime("%Y-%m-%d %H:%M UTC")
             rows.append(row)
         print_table(
             rows,
