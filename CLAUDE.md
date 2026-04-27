@@ -91,3 +91,26 @@ Every resource, pagination class, and stream has mirrored sync/async implementat
 - **mypy**: Strict mode, target Python 3.9
 - **ruff**: Rules E, F, I, N, UP, B, SIM (target Python 3.9)
 - **Tests**: pytest + pytest-asyncio (mode: auto) + respx for HTTP mocking
+
+## Releasing
+
+Single source of truth: `querri/_version.py`. `pyproject.toml` reads it via `[tool.hatch.version]` — never edit a version string anywhere else.
+
+To cut a release:
+
+```bash
+./scripts/release.sh X.Y.Z
+```
+
+The script: stashes uncommitted work, bumps `_version.py`, runs ruff + mypy + pytest, commits as "Bump version to X.Y.Z", tags `vX.Y.Z`, pushes main + tag, restores the stash. Pushing the tag triggers `.github/workflows/release.yml`, which re-runs CI and (on green) publishes to PyPI via Trusted Publisher.
+
+Verify after release:
+
+```bash
+gh run watch $(gh run list --workflow=release.yml --limit 1 --json databaseId -q '.[0].databaseId')
+curl -s https://pypi.org/pypi/querri/json | python3 -c "import json,sys;print(json.load(sys.stdin)['info']['version'])"
+```
+
+If `release.yml` fails, fix forward and bump to the next patch — never re-tag a published version. PyPI rejects republishing the same version even if the previous attempt failed mid-flight.
+
+Tests assert the CLI's `--version` output and `user_agent` against `__version__` dynamically (`tests/test_cli.py`, `tests/test_config.py`) — if you ever see a hardcoded version string in a test, that's a bug; replace it with `__version__`.

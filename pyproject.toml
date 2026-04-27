@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "querri"
-version = "1.0.6"
+dynamic = ["version"]
 description = "Python SDK and CLI for the Querri data analysis platform"
 readme = "README.md"
 license = "MIT"
@@ -56,6 +56,9 @@ querri = "querri.cli:app"
 Homepage = "https://querri.com"
 Documentation = "https://docs.querri.com/sdk/python"
 Repository = "https://github.com/querri-ai/querri-python"
+
+[tool.hatch.version]
+path = "querri/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["querri"]
