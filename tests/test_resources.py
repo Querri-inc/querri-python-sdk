@@ -1050,39 +1050,184 @@ class TestViews:
         assert route.called
 
     @respx.mock
-    def test_run(self):
+    def test_run_no_wait_returns_202_envelope(self):
+        """wait=False — caller polls themselves; we return the 202 envelope."""
         respx.post(f"{BASE}/views/run").mock(
             return_value=httpx.Response(
-                200,
+                202,
                 json={
-                    "status": "started",
-                    "view_count": 3,
+                    "run_id": "run_abc123def456",
+                    "status": "queued",
+                    "view_uuids": None,
                 },
             )
         )
         from querri.resources.views import Views
 
         views = Views(_http())
-        result = views.run()
-        assert result["status"] == "started"
+        result = views.run(wait=False)
+        assert result["run_id"] == "run_abc123def456"
+        assert result["status"] == "queued"
 
     @respx.mock
     def test_run_specific_views(self):
+        """view_uuids appears in the POST body."""
         route = respx.post(f"{BASE}/views/run").mock(
             return_value=httpx.Response(
-                200,
+                202,
                 json={
-                    "status": "started",
-                    "view_count": 2,
+                    "run_id": "run_xyz",
+                    "status": "queued",
+                    "view_uuids": ["view_1", "view_2"],
                 },
             )
         )
         from querri.resources.views import Views
 
         views = Views(_http())
-        result = views.run(view_uuids=["view_1", "view_2"])
-        assert result["view_count"] == 2
+        result = views.run(view_uuids=["view_1", "view_2"], wait=False)
+        assert result["view_uuids"] == ["view_1", "view_2"]
         assert b"view_uuids" in route.calls[0].request.content
+
+    @respx.mock
+    def test_run_polls_until_terminal(self):
+        """Default wait=True — POST gets the 202, then we poll GET until
+        status is terminal."""
+        respx.post(f"{BASE}/views/run").mock(
+            return_value=httpx.Response(
+                202,
+                json={
+                    "run_id": "run_polltest",
+                    "status": "queued",
+                    "view_uuids": None,
+                },
+            )
+        )
+        # First poll: still running; second poll: completed.
+        responses = iter(
+            [
+                httpx.Response(
+                    200,
+                    json={
+                        "run_id": "run_polltest",
+                        "status": "running",
+                        "view_uuids": None,
+                        "succeeded": [],
+                        "failed": [],
+                    },
+                ),
+                httpx.Response(
+                    200,
+                    json={
+                        "run_id": "run_polltest",
+                        "status": "completed",
+                        "view_uuids": None,
+                        "succeeded": ["v1", "v2"],
+                        "failed": [],
+                    },
+                ),
+            ]
+        )
+        respx.get(f"{BASE}/views/runs/run_polltest").mock(
+            side_effect=lambda req: next(responses)
+        )
+        from querri.resources.views import Views
+
+        views = Views(_http())
+        result = views.run(wait=True, poll_interval=0.01)
+        assert result["status"] == "completed"
+        assert result["succeeded"] == ["v1", "v2"]
+
+    @respx.mock
+    def test_run_on_progress_fires_once_per_distinct_status(self):
+        """on_progress should be invoked once when status changes —
+        queued→running→completed = 3 calls, not 1 per poll."""
+        respx.post(f"{BASE}/views/run").mock(
+            return_value=httpx.Response(
+                202,
+                json={
+                    "run_id": "run_progress",
+                    "status": "queued",
+                    "view_uuids": None,
+                },
+            )
+        )
+        statuses = iter(["queued", "running", "running", "completed"])
+
+        def _next_response(_req):
+            status = next(statuses)
+            return httpx.Response(
+                200,
+                json={
+                    "run_id": "run_progress",
+                    "status": status,
+                    "view_uuids": None,
+                    "succeeded": ["v"] if status == "completed" else [],
+                    "failed": [],
+                },
+            )
+
+        respx.get(f"{BASE}/views/runs/run_progress").mock(
+            side_effect=_next_response
+        )
+        from querri.resources.views import Views
+
+        seen: list[str] = []
+
+        views = Views(_http())
+        views.run(
+            wait=True,
+            poll_interval=0.01,
+            on_progress=lambda rec: seen.append(rec["status"]),
+        )
+        assert seen == ["queued", "running", "completed"]
+
+    @respx.mock
+    def test_run_timeout_raises(self):
+        """Status never becomes terminal -> TimeoutError."""
+        import pytest
+
+        respx.post(f"{BASE}/views/run").mock(
+            return_value=httpx.Response(
+                202,
+                json={
+                    "run_id": "run_stuck",
+                    "status": "queued",
+                    "view_uuids": None,
+                },
+            )
+        )
+        respx.get(f"{BASE}/views/runs/run_stuck").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "run_id": "run_stuck",
+                    "status": "running",
+                    "view_uuids": None,
+                    "succeeded": [],
+                    "failed": [],
+                },
+            )
+        )
+        from querri.resources.views import Views
+
+        views = Views(_http())
+        with pytest.raises(TimeoutError):
+            views.run(wait=True, poll_interval=0.01, timeout=0.05)
+
+    @respx.mock
+    def test_get_run(self):
+        respx.get(f"{BASE}/views/runs/run_one").mock(
+            return_value=httpx.Response(
+                200,
+                json={"run_id": "run_one", "status": "completed"},
+            )
+        )
+        from querri.resources.views import Views
+
+        views = Views(_http())
+        record = views.get_run("run_one")
+        assert record["status"] == "completed"
 
     @respx.mock
     def test_preview(self):

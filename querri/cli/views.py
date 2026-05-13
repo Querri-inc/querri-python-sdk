@@ -293,10 +293,27 @@ def run_views(
     view_ids: str | None = typer.Option(
         None, "--view-ids", help="Comma-separated view IDs to materialize."
     ),
+    no_wait: bool = typer.Option(
+        False,
+        "--no-wait",
+        help=(
+            "Return the run_id immediately without polling. Use "
+            "`querri view run-status <run_id>` to check progress."
+        ),
+    ),
+    timeout: float = typer.Option(
+        1800.0,
+        "--timeout",
+        help="Max seconds to wait for materialization (default 30 min).",
+    ),
 ) -> None:
-    """Run view materialization.
+    """Run view materialization (polls until done by default).
 
-    Omit --view-ids to materialize the full DAG.
+    Omit --view-ids to materialize the full DAG. The server returns 202 with
+    a ``run_id`` immediately; this command then polls the status endpoint
+    until the run reaches a terminal state (``completed`` | ``partial`` |
+    ``failed``) and prints a summary. Pass ``--no-wait`` to get the run_id
+    and exit.
     """
     obj = ctx.ensure_object(dict)
     client = get_client(ctx)
@@ -305,17 +322,114 @@ def run_views(
     if view_ids:
         uuids = [u.strip() for u in view_ids.split(",") if u.strip()]
 
+    is_json = obj.get("json")
+
+    def _progress(record: dict[str, Any]) -> None:
+        # Suppress progress prints in --json mode; the final printed record
+        # already conveys the terminal state and progress chatter would
+        # pollute machine-parsed output.
+        if is_json:
+            return
+        status = record.get("status", "?")
+        print(f"  → {status}", file=sys.stderr, flush=True)
+
     try:
-        result = client.views.run(view_uuids=uuids)
+        if no_wait:
+            result = client.views.run(view_uuids=uuids, wait=False)
+        else:
+            result = client.views.run(
+                view_uuids=uuids,
+                wait=True,
+                timeout=timeout,
+                on_progress=_progress,
+            )
+    except TimeoutError as exc:
+        if is_json:
+            print_json({"error": str(exc)})
+        else:
+            print_error(str(exc))
+        raise typer.Exit(code=1) from None
     except Exception as exc:
-        raise typer.Exit(code=handle_api_error(exc, is_json=obj.get("json"))) from None
+        raise typer.Exit(code=handle_api_error(exc, is_json=is_json)) from None
+
+    if is_json:
+        print_json(result)
+        return
+
+    status = result.get("status", "?")
+    if no_wait or status not in ("completed", "partial", "failed"):
+        print_success(f"View materialization queued ({status})")
+        if result.get("run_id"):
+            print(f"  Run ID: {result['run_id']}", file=sys.stderr)
+        return
+
+    succeeded = result.get("succeeded") or []
+    failed = result.get("failed") or []
+    if status == "completed":
+        print_success(
+            f"View materialization completed — {len(succeeded)} view(s)"
+        )
+    elif status == "partial":
+        print_success(
+            f"View materialization partial — "
+            f"{len(succeeded)} succeeded, {len(failed)} failed"
+        )
+        for vid in failed:
+            print(f"  ✗ {vid}", file=sys.stderr)
+    else:  # failed
+        err = result.get("error")
+        print_error(
+            f"View materialization failed{': ' + err if err else ''}"
+        )
+        for vid in failed:
+            print(f"  ✗ {vid}", file=sys.stderr)
+        raise typer.Exit(code=1)
+
+
+@view_app.command("run-status")
+def run_status(
+    ctx: typer.Context,
+    run_id: str = typer.Argument(..., help="Run ID returned by `view run`."),
+) -> None:
+    """Print the current state of a view run (one-shot, no polling)."""
+    obj = ctx.ensure_object(dict)
+    client = get_client(ctx)
+
+    try:
+        record = client.views.get_run(run_id)
+    except Exception as exc:
+        raise typer.Exit(
+            code=handle_api_error(exc, is_json=obj.get("json"))
+        ) from None
 
     if obj.get("json"):
-        print_json(result)
-    else:
-        print_success("View materialization started")
-        if result.get("status"):
-            print(f"  Status: {result['status']}", file=sys.stderr)
+        print_json(record)
+        return
+
+    fields = [
+        ("run_id", "Run ID"),
+        ("status", "Status"),
+        ("started_at", "Started"),
+        ("finished_at", "Finished"),
+    ]
+    summary = {
+        "run_id": record.get("run_id", run_id),
+        "status": record.get("status", "?"),
+        "started_at": record.get("started_at") or "—",
+        "finished_at": record.get("finished_at") or "—",
+    }
+    print_detail(summary, fields)
+
+    succeeded = record.get("succeeded") or []
+    failed = record.get("failed") or []
+    if succeeded:
+        print(f"  succeeded: {len(succeeded)} view(s)", file=sys.stderr)
+    if failed:
+        print(f"  failed: {len(failed)} view(s)", file=sys.stderr)
+        for vid in failed:
+            print(f"    ✗ {vid}", file=sys.stderr)
+    if record.get("error"):
+        print(f"  error: {record['error']}", file=sys.stderr)
 
 
 @view_app.command("preview")

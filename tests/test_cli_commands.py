@@ -1018,34 +1018,128 @@ class TestViewsCommands:
     # -- run ----------------------------------------------------------------
 
     def test_view_run_all(self) -> None:
-        """run with no --view-ids materializes the full DAG."""
+        """run with no --view-ids materializes the full DAG, blocking on
+        the SDK poll by default."""
         mock_client = MagicMock()
-        mock_client.views.run.return_value = {"status": "started"}
+        mock_client.views.run.return_value = {
+            "run_id": "run_xyz",
+            "status": "completed",
+            "succeeded": ["v_1"],
+            "failed": [],
+        }
         with patch("querri.cli.views.get_client", return_value=mock_client):
             result = runner.invoke(main_app, [*_GLOBAL, "view", "run"])
         assert result.exit_code == 0
-        mock_client.views.run.assert_called_once_with(view_uuids=None)
+        # Default wait=True; the CLI passes through view_uuids and a
+        # progress callback.
+        kwargs = mock_client.views.run.call_args.kwargs
+        assert kwargs["view_uuids"] is None
+        assert kwargs["wait"] is True
+        assert "on_progress" in kwargs
 
     def test_view_run_specific_ids(self) -> None:
         """run passes view_uuids= (not view_ids=) to the SDK."""
         mock_client = MagicMock()
-        mock_client.views.run.return_value = {"status": "started"}
+        mock_client.views.run.return_value = {
+            "run_id": "run_xyz",
+            "status": "completed",
+            "succeeded": ["v_1", "v_2"],
+            "failed": [],
+        }
         with patch("querri.cli.views.get_client", return_value=mock_client):
             result = runner.invoke(
                 main_app,
                 [*_GLOBAL, "view", "run", "--view-ids", "v_1,v_2"],
             )
         assert result.exit_code == 0
-        mock_client.views.run.assert_called_once_with(view_uuids=["v_1", "v_2"])
+        assert mock_client.views.run.call_args.kwargs["view_uuids"] == [
+            "v_1",
+            "v_2",
+        ]
+
+    def test_view_run_no_wait(self) -> None:
+        """--no-wait returns the 202 envelope without polling."""
+        mock_client = MagicMock()
+        mock_client.views.run.return_value = {
+            "run_id": "run_xyz",
+            "status": "queued",
+            "view_uuids": None,
+        }
+        with patch("querri.cli.views.get_client", return_value=mock_client):
+            result = runner.invoke(
+                main_app, [*_GLOBAL, "view", "run", "--no-wait"]
+            )
+        assert result.exit_code == 0
+        # CLI passes wait=False to the SDK
+        assert mock_client.views.run.call_args.kwargs["wait"] is False
+
+    def test_view_run_partial_status_lists_failed_views(self) -> None:
+        mock_client = MagicMock()
+        mock_client.views.run.return_value = {
+            "run_id": "run_xyz",
+            "status": "partial",
+            "succeeded": ["v_1"],
+            "failed": ["v_bad"],
+        }
+        with patch("querri.cli.views.get_client", return_value=mock_client):
+            result = runner.invoke(main_app, [*_GLOBAL, "view", "run"])
+        assert result.exit_code == 0
+        # CliRunner captures both stdout and stderr in result.output
+        assert "v_bad" in result.output
+
+    def test_view_run_failed_exits_nonzero(self) -> None:
+        mock_client = MagicMock()
+        mock_client.views.run.return_value = {
+            "run_id": "run_xyz",
+            "status": "failed",
+            "succeeded": [],
+            "failed": ["v_bad"],
+            "error": "DAG cycle detected",
+        }
+        with patch("querri.cli.views.get_client", return_value=mock_client):
+            result = runner.invoke(main_app, [*_GLOBAL, "view", "run"])
+        # Failed status surfaces a non-zero exit code so scripts can detect it.
+        assert result.exit_code == 1
+
+    def test_view_run_timeout_exits_nonzero(self) -> None:
+        mock_client = MagicMock()
+        mock_client.views.run.side_effect = TimeoutError(
+            "View run run_xyz did not finish within 1800.0s"
+        )
+        with patch("querri.cli.views.get_client", return_value=mock_client):
+            result = runner.invoke(main_app, [*_GLOBAL, "view", "run"])
+        assert result.exit_code == 1
 
     def test_view_run_json(self) -> None:
         mock_client = MagicMock()
-        mock_client.views.run.return_value = {"status": "started"}
+        mock_client.views.run.return_value = {
+            "run_id": "run_xyz",
+            "status": "completed",
+            "succeeded": ["v"],
+            "failed": [],
+        }
         with patch("querri.cli.views.get_client", return_value=mock_client):
             result = runner.invoke(main_app, [*_GLOBAL, *_JSON, "view", "run"])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["status"] == "started"
+        assert data["status"] == "completed"
+
+    def test_view_run_status_command(self) -> None:
+        mock_client = MagicMock()
+        mock_client.views.get_run.return_value = {
+            "run_id": "run_xyz",
+            "status": "completed",
+            "succeeded": ["v"],
+            "failed": [],
+            "started_at": "2026-05-13T00:00:00+00:00",
+            "finished_at": "2026-05-13T00:05:00+00:00",
+        }
+        with patch("querri.cli.views.get_client", return_value=mock_client):
+            result = runner.invoke(
+                main_app, [*_GLOBAL, "view", "run-status", "run_xyz"]
+            )
+        assert result.exit_code == 0
+        mock_client.views.get_run.assert_called_once_with("run_xyz")
 
     # -- preview ------------------------------------------------------------
 
