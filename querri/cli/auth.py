@@ -162,40 +162,6 @@ def login(
     chosen_org_id = result["org_id"]
     chosen_org_name = result.get("org_name", "")
 
-    # If the user didn't pass --organization and they belong to multiple orgs,
-    # show a terminal picker so they can choose which org to work in.
-    if not organization and len(all_orgs) > 1 and not is_json:
-        chosen_org_id, chosen_org_name = _pick_organization(
-            all_orgs,
-            current_org_id=result["org_id"],
-        )
-        # If they picked a different org, refresh tokens scoped to that org
-        if chosen_org_id != result["org_id"]:
-            try:
-                temp_profile = TokenProfile(
-                    auth_type="jwt",
-                    access_token=result["access_token"],
-                    refresh_token=result["refresh_token"],
-                    expires_at=result["expires_at"],
-                    org_id=chosen_org_id,
-                    org_name=chosen_org_name,
-                    user_email=result["user_email"],
-                    user_id=result["user_id"],
-                    user_name=result.get("user_name", ""),
-                    host=host,
-                )
-                temp_profile = refresh_tokens(
-                    temp_profile,
-                    host,
-                    organization_id=chosen_org_id,
-                )
-                result["access_token"] = temp_profile.access_token
-                result["refresh_token"] = temp_profile.refresh_token
-                result["expires_at"] = temp_profile.expires_at
-            except RuntimeError as exc:
-                print_error(f"Failed to switch organization: {exc}")
-                raise typer.Exit(code=2) from None
-
     # Save profile
     profile = TokenProfile(
         auth_type="jwt",
@@ -229,9 +195,16 @@ def login(
         name = result.get("user_name")
         if name:
             identity = f"{name} ({identity})"
-        if chosen_org_name:
-            identity = f"{identity} — {chosen_org_name}"
         print_success(f"Logged in as {identity}")
+        org_label = chosen_org_name or chosen_org_id or "(unknown)"
+        if chosen_org_id and chosen_org_name:
+            org_label = f"{chosen_org_name} ({chosen_org_id})"
+        print(f"  Organization: {org_label}", file=sys.stderr)
+        if len(all_orgs) > 1:
+            print(
+                "  To switch organizations, run: querri auth switch-org",
+                file=sys.stderr,
+            )
 
 
 # ---------------------------------------------------------------------------
