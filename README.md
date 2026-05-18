@@ -5,9 +5,14 @@
 
 ## Install
 
+The package ships in two flavors. Pick based on whether you want the CLI:
+
 ```bash
-pip install querri
+pip install querri          # SDK only (httpx + pydantic)
+pip install 'querri[cli]'   # SDK + CLI (adds typer, rich, Pillow)
 ```
+
+The `querri` command-line tool requires the `[cli]` extra. If you install the bare package and run `querri`, it'll tell you to reinstall with `'querri[cli]'`.
 
 ---
 
@@ -194,17 +199,19 @@ See **[docs/server-sdk.md](docs/server-sdk.md#user-scoped-client-as_user)** for 
 
 | Resource | Access | Key Methods |
 |----------|--------|-------------|
-| `client.dashboards` | Dashboard management | `list`, `create`, `get`, `update`, `delete`, `refresh` |
-| `client.projects` | Analysis projects | `list`, `create`, `get`, `run`, `run_status`, `list_steps` |
-| `client.projects.chats` | Chats within projects | `create`, `list`, `stream`, `cancel`, `delete` |
+| `client.embed` | Embed sessions (flagship) | `get_session`, `create_session`, `refresh_session`, `revoke_session`, `list_sessions` |
+| `client.policies` | Row-level access control | `setup`, `create`, `list`, `get`, `update`, `delete`, `assign_users`, `remove_user`, `resolve`, `columns` |
+| `client.users` | User management | `list`, `create`, `get`, `get_or_create`, `update`, `delete` |
+| `client.dashboards` | Dashboard management | `list`, `create`, `get`, `update`, `delete`, `refresh`, `refresh_status` |
+| `client.projects` | Analysis projects | `list`, `create`, `get`, `update`, `delete`, `add_source`, `run`, `run_status`, `run_cancel`, `list_steps`, `get_step_data` |
+| `client.projects.chats` | Chats within projects | `create`, `list`, `get`, `stream`, `cancel`, `delete` |
 | `client.sources` | Sources, connectors & data | `list`, `create`, `create_data_source`, `query`, `source_data`, `append_rows`, `replace_data`, `ask`, `sync`, `list_connectors` |
-| `client.views` | SQL-defined views | `list`, `create`, `get`, `update`, `delete`, `run`, `preview`, `chat` |
+| `client.views` | SQL-defined views | `list`, `create`, `get`, `update`, `delete`, `run`, `get_run`, `wait_for_run`, `preview`, `chat` |
 | `client.files` | File management | `upload`, `list`, `get`, `delete` |
-| `client.users` | User management | `list`, `create`, `get`, `update`, `delete` |
 | `client.keys` | API key management | `create`, `list`, `get`, `delete` |
+| `client.sharing` | Sharing & permissions | `share_project`, `share_dashboard`, `share_source`, `list_project_shares`, `list_dashboard_shares`, `revoke_project_share`, `revoke_dashboard_share`, `org_share_source` |
 | `client.audit` | Audit log | `list` |
 | `client.usage` | Usage metrics | `org_usage`, `user_usage` |
-| `client.sharing` | Sharing & permissions | `share_project`, `share_dashboard`, `share_source` |
 
 ### Async Client
 
